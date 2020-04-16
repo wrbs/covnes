@@ -13,6 +13,8 @@ use covnes::cpu::CpuHostAccess;
 // troubleshoot obvious issues. I couldn't get the timing to align with mesen, it's too accurate for
 // what I need right now
 
+const BUF_SIZE: usize = 1024;
+
 #[test]
 #[ignore]
 fn dk_log_cmp() -> Result<(), Error> {
@@ -24,6 +26,12 @@ fn dk_log_cmp() -> Result<(), Error> {
 fn ice_log_cmp() -> Result<(), Error> {
     log_cmp("ice")
 }
+
+// It's like 2 gigs, no time for that
+// #[test]
+// fn chace_log_cmp() -> Result<(), Error> {
+//     log_cmp("Chase")
+// }
 
 fn log_cmp(game: &str) -> Result<(), Error> {
     // Load up the rom
@@ -48,14 +56,22 @@ fn log_cmp(game: &str) -> Result<(), Error> {
 
     let mut hackno = 0;
 
+    let mut linebuf = Vec::with_capacity(BUF_SIZE);
+    for _ in 0..BUF_SIZE {
+        linebuf.push(String::new());
+    }
+
+    let mut i = 0;
+
     loop {
-        let mut buf = String::new();
-        log.read_line(&mut buf)?;
-        if &buf == "" {
+        let buf = &mut linebuf[i];
+
+        buf.clear();
+        log.read_line(buf)?;
+        if buf == "" {
             break;
         }
 
-        print!("{}", &buf);
         if buf.chars().next() == Some('D') {
 
         } else if buf.chars().next() == Some('P') {
@@ -136,6 +152,7 @@ fn log_cmp(game: &str) -> Result<(), Error> {
                     nes.vram.set([0xFF; 2048]);
                     nes.ppu.tick(&nes);
                 } else {
+                    print_buf(&linebuf, i);
                     panic!("Bad ppu");
                 }
             }
@@ -200,11 +217,26 @@ fn log_cmp(game: &str) -> Result<(), Error> {
             }
 
             if fail {
+                print_buf(&linebuf, i);
                 panic!("Bad CPU");
             }
 
         }
+
+        i += 1;
+        i %= BUF_SIZE;
     }
 
     Ok(())
+}
+
+fn print_buf(buf: &Vec<String>, i: usize) {
+    let mut j = i;
+    loop {
+        j = (j + 1) % BUF_SIZE;
+        print!("{}", buf[j]);
+        if j == i {
+            break;
+        }
+    }
 }

@@ -6,7 +6,7 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use structopt::StructOpt;
 use std::path::PathBuf;
 
@@ -41,6 +41,8 @@ fn main() -> Result<(), Error> {
     canvas.present();
     
     let mut event_pump = sdl_context.event_pump().map_err(err_msg)?;
+    let mut fc = 0;
+    let start = SystemTime::now();
     'running: loop {
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
@@ -82,9 +84,14 @@ fn main() -> Result<(), Error> {
         }
         // The rest of the game loop goes here...
 
+        nes.step_frame();
+        fc += 1;
+
         canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
+
+    let elapsed = start.elapsed().unwrap();
+    println!("{} frames in {:?} = {} average fps", fc, elapsed, fc as f32 / elapsed.as_secs_f32());
 
     Ok(())
 }

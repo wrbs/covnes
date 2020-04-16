@@ -168,7 +168,7 @@ impl PPU {
 
                 let t = self.addr_t.get();
                 // t: ...BA.. ........ = d: ......BA
-                let new_t = (t & 0b1110011_11111111) | ((value as u16 & 0b11) << 9);
+                let new_t = (t & 0b1110011_11111111) | ((value as u16 & 0b11) << 10);
                 self.addr_t.set(new_t);
             }
             1 => self.ppumask.set(PPUMASK::from_bits_truncate(value)),
@@ -181,8 +181,8 @@ impl PPU {
             5 => {
                 if self.latch_w.get() {
                     // t: CBA..HG FED..... = d: HGFEDCBA
-                    let cba = (value as u16 & 0b11) << 12;
-                    let hgfed = (value as u16 & !0b11) << 2;
+                    let cba = (value as u16 & 0b111) << 12;
+                    let hgfed = (value as u16 & !0b111) << 2;
                     let t = self.addr_t.get();
                     let new_t = (t & 0b1100_00011111) | cba | hgfed;
                     self.addr_t.set(new_t);
@@ -270,7 +270,6 @@ impl PPU {
 
                 // increment addr
                 self.last_read.set(n);
-                println!("PPUDATA read of {:04X}: {:02X}", v, n);
             }
             _ => (),
         }

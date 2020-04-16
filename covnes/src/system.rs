@@ -30,6 +30,7 @@ impl Color {
 pub struct Nes {
     pub cpu: CPU,
     pub ppu: PPU,
+    pub dma: DMA,
     pub cartridge: Box<dyn Cartridge>,
     pub cpu_ram: Cell<[u8; 2048]>,
     pub cycle: Cell<Cycle>,
@@ -42,6 +43,7 @@ impl Nes {
         let cartridge = mappers::not_connected();
         let cpu = CPU::new();
         let ppu = PPU::new();
+        let dma = DMA::new();
         let cpu_ram = Cell::new([0; 2048]);
         let vram = Cell::new([0; 2048]);
         let pixels = Cell::new([Color::BLACK; 256 * 240]);
@@ -49,6 +51,7 @@ impl Nes {
         Nes {
             cpu_ram,
             ppu,
+            dma,
             cartridge,
             cpu,
             vram,
@@ -59,7 +62,8 @@ impl Nes {
 
     pub fn reset(&self) {
         self.cpu.reset();
-        self.ppu.reset()
+        self.ppu.reset();
+        self.dma.reset();
     }
 
     pub fn insert_cartridge(&mut self, cartridge: Box<dyn Cartridge>) {
@@ -102,7 +106,7 @@ impl Nes {
             }
             Cycle::T3 => {
                 self.ppu.tick(self);
-                self.cpu.tick(self);
+                self.perform_cpu_cycle();
                 Cycle::T1
             }
         };
@@ -142,6 +146,13 @@ impl Nes {
 
         ticks
     }
+
+    fn perform_cpu_cycle(&self) {
+        let should_tick_cpu = self.dma.tick(&self);
+        if should_tick_cpu {
+            self.cpu.tick(self);
+        }
+    }
 }
 
 impl CpuHostAccess for Nes {
@@ -178,6 +189,7 @@ impl CpuHostAccess for Nes {
                 let ppu_reg = ((addr - 0x2000) % 8) as u8;
                 self.ppu.reg_write(self, ppu_reg, value);
             }
+            0x4014 => self.dma.trigger_oamdma(value),
             0x4000..=0x4017 => {
                 // println!("APU Write: 0x{:04x} {}", addr, value);
             }
@@ -206,5 +218,86 @@ impl PPUHostAccess for Nes {
 
     fn ppu_set_pixel(&self, row: u16, col: u16, color: Color) {
         self.pixels()[(row * 256 + col) as usize].set(color);
+    }
+}
+
+
+pub struct DMA {
+    pub is_odd: Cell<bool>,
+    pub state: Cell<DMAState>,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum DMAState {
+    // Not DMAing
+    No,
+    // Set by cpu writing to OAMDMA
+    Req { addr_high: u8 },
+    // If we need to for alignment
+    DummyRead { addr_high: u8 },
+    Read { addr_high: u8, addr_low: u8 },
+    Write { addr_high: u8, addr_low: u8, value: u8 },
+}
+
+// This is not entirely accurate - we don't read the correct address when starting a DMA
+// This is because I don't want to to completely restructure the CPU just in case there happened to
+// be some kind of snoopy bus
+//
+// Timing's there, actual reads not so much
+impl DMA {
+    pub fn new() -> DMA {
+        DMA {
+            is_odd: Cell::new(false),
+            state: Cell::new(DMAState::No),
+        }
+    }
+
+    pub fn reset(&self) {
+        self.is_odd.set(false);
+    }
+
+    pub fn trigger_oamdma(&self, value: u8) {
+        self.state.set(DMAState::Req { addr_high: value });
+    }
+
+    pub fn tick(&self, nes: &Nes) -> bool {
+        let is_odd = self.is_odd.get();
+        self.is_odd.set(!is_odd);
+
+        let (next_state, tick_cpu) = match self.state.get() {
+            DMAState::No => (DMAState::No, true),
+            DMAState::Req { addr_high } => {
+                if nes.cpu.state.get().is_write_cycle() {
+                    // We don't hijack write cycles
+                    (DMAState::Req { addr_high }, true)
+                } else if is_odd {
+                    // This is currently a write cycle. This is good - next is read
+                    (DMAState::Read { addr_high, addr_low: 0 }, false)
+                } else {
+                    // We're currently on a read, we need to dummy read to be aligned at the end
+                    (DMAState::DummyRead { addr_high }, false)
+                }
+            },
+            DMAState::DummyRead { addr_high } => {
+                nes.read((addr_high as u16) << 8);
+                (DMAState::Read { addr_high, addr_low: 0 }, false)
+            },
+            DMAState::Read { addr_high, addr_low } => {
+                let value = nes.read ((addr_high as u16) << 8 | addr_low as u16);
+                (DMAState::Write { addr_high, addr_low, value }, false)
+            },
+            DMAState::Write { addr_high, addr_low, value } => {
+                // Write to OAMDATA
+                nes.write(0x2004, value);
+                if addr_low == 255 {
+                    (DMAState::No, false)
+                } else {
+                    (DMAState::Read { addr_high, addr_low: addr_low + 1 }, false)
+                }
+            },
+        };
+
+        self.state.set(next_state);
+        tick_cpu
     }
 }

@@ -316,6 +316,26 @@ impl Default for S {
     }
 }
 
+impl State {
+    pub fn is_write_cycle(&self) -> bool {
+        match self.0 {
+            S::ExecuteOnAddress(op, _, _) => match op {
+                Op::Write(_) | Op::SH(_) => true,
+                _ => false
+            },
+            S::WriteBackThenWrite(_, _, _) => true,
+            S::Write(_, _) => true,
+            S::Int2(interrupt) => interrupt != Interrupt::Reset,
+            S::Int3(interrupt) => interrupt != Interrupt::Reset,
+            S::Int4(interrupt, _) => interrupt != Interrupt::Reset,
+            S::PHPA(_) => true,
+            S::JSR3(_) => true,
+            S::JSR4(_) => true,
+            _ => false
+        }
+    }
+}
+
 impl CPU {
     pub fn is_at_instruction(&self) -> bool {
         self.state.get().0 == S::FetchOpcode

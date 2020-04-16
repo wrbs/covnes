@@ -85,7 +85,7 @@ impl Cartridge for NROM {
                 }
                 0x8000..=0xBFFF => self.prg_rom[(addr - 0x8000) as usize],
                 0xC000..=0xFFFF => self.prg_rom[(addr - 0xC000) as usize],
-                _ => panic!("Bad read"),
+                _ => if cfg!(pedantic_af) { panic!("Bad read") } else { 0 },
             }
         } else {
             match addr {
@@ -100,7 +100,7 @@ impl Cartridge for NROM {
                     }
                 }
                 0x8000..=0xFFFF => self.prg_rom[(addr - 0x8000) as usize],
-                _ => panic!("Bad read {:4X}", addr),
+                _ => if cfg!(pedantic_af) { panic!("Bad read {:4X}", addr) } else { 0 },
             }
         }
     }
