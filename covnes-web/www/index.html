@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Covnes</title>
+  </head>
+  <body>
+    <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
+    <script src="./bootstrap.js"></script>
+    <form>
+      <label for="romfile">Upload rom: </label>
+      <input type="file" id="romfile">
+    </form>
+    <div id="romfile_load_error"></div>
+    <canvas id="screen" width="256" height="240" style="border:1px solid #000000"></canvas>
+    <button id="step">Step</button>
+  </body>
+</html>

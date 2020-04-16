@@ -1,5 +1,5 @@
 use covnes::romfiles::RomFile;
-use covnes::system::Nes;
+use covnes::system::{Nes, IO};
 use covnes::mappers;
 use failure::{err_msg, Error};
 use sdl2::event::Event;
@@ -9,6 +9,8 @@ use sdl2::rect::Rect;
 use std::time::{Duration, SystemTime};
 use structopt::StructOpt;
 use std::path::PathBuf;
+use std::cell::Cell;
+use sdl2::Sdl;
 
 #[derive(Debug, StructOpt)]
 struct Opt {
@@ -21,7 +23,8 @@ fn main() -> Result<(), Error> {
     let opt = Opt::from_args();
     let scale = 3;
     let rom = RomFile::from_filename(opt.romfile)?;
-    let mut nes = Nes::new();
+    let io = SdlIO::new();
+    let mut nes = Nes::new(io);
     let cart = mappers::from_rom(rom)?;
 
     nes.insert_cartridge(cart);
@@ -48,8 +51,8 @@ fn main() -> Result<(), Error> {
         canvas.clear();
         for row in 0..240 {
             for col in 0..256 {
-                let colour = nes.get_pixel(row, col);
-                canvas.set_draw_color(Color::RGB(colour.r, colour.g, colour.b));
+                let (r, g, b) = nes.io.get_pixel(row, col);
+                canvas.set_draw_color(Color::RGB(r, g, b));
                 canvas
                     .fill_rect(Rect::new(
                         col as i32 * scale as i32,
@@ -94,4 +97,31 @@ fn main() -> Result<(), Error> {
     println!("{} frames in {:?} = {} average fps", fc, elapsed, fc as f32 / elapsed.as_secs_f32());
 
     Ok(())
+}
+
+struct SdlIO {
+    pixels: Cell<[(u8, u8, u8); 256 * 240]>,
+}
+
+impl SdlIO {
+    fn new() -> SdlIO {
+        SdlIO {
+            pixels: Cell::new([(0, 0, 0); 256 * 240])
+        }
+    }
+
+    fn get_pixel(&self, row: u16, col: u16) -> (u8, u8, u8) {
+        self.pixels()[row as usize * 256 + col as usize].get()
+    }
+
+    fn pixels(&self) -> &[Cell<(u8, u8, u8)>] {
+        let f: &Cell<[(u8, u8, u8)]> = &self.pixels;
+        f.as_slice_of_cells()
+    }
+}
+
+impl IO for SdlIO {
+    fn set_pixel(&self, row: u16, col: u16, r: u8, g: u8, b: u8) {
+        self.pixels()[row as usize * 256 + col as usize].set((r, g, b));
+    }
 }

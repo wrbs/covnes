@@ -1,7 +1,7 @@
 use covnes::cpu;
 use covnes::cpu::CpuHostAccess;
 use covnes::romfiles::RomFile;
-use covnes::system::Nes;
+use covnes::system::{Nes, DummyIO};
 use covnes::mappers;
 use failure::Error;
 use regex::Regex;
@@ -19,7 +19,8 @@ fn do_rom(name: &str) -> Result<(), Error> {
 
     let cart = mappers::from_rom(rom)?;
 
-    let mut nes = Nes::new();
+    let io = DummyIO;
+    let mut nes = Nes::new(io);
 
     nes.insert_cartridge(cart);
 

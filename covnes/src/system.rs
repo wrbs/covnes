@@ -5,6 +5,10 @@ use crate::ppu::{PPUHostAccess, PPU};
 use crate::romfiles::RomFile;
 use std::cell::Cell;
 
+pub trait IO {
+    fn set_pixel(&self, row: u16, col: u16, r: u8, g: u8, b: u8);
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Cycle {
     T1,
@@ -12,50 +16,34 @@ pub enum Cycle {
     T3,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-}
-
-impl Color {
-    pub fn rgb(r: u8, g: u8, b: u8) -> Color {
-        Color { r, g, b }
-    }
-
-    const BLACK: Color = Color { r: 0, g: 0, b: 0 };
-}
-
-pub struct Nes {
+pub struct Nes<I: IO> {
+    pub io: I,
     pub cpu: CPU,
     pub ppu: PPU,
     pub dma: DMA,
     pub cartridge: Box<dyn Cartridge>,
     pub cpu_ram: Cell<[u8; 2048]>,
     pub cycle: Cell<Cycle>,
-    pub pixels: Cell<[Color; 256 * 240]>,
     pub vram: Cell<[u8; 2048]>,
 }
 
-impl Nes {
-    pub fn new() -> Nes {
+impl<I: IO> Nes<I> {
+    pub fn new(io: I) -> Nes<I> {
         let cartridge = mappers::not_connected();
         let cpu = CPU::new();
         let ppu = PPU::new();
         let dma = DMA::new();
         let cpu_ram = Cell::new([0; 2048]);
         let vram = Cell::new([0; 2048]);
-        let pixels = Cell::new([Color::BLACK; 256 * 240]);
 
         Nes {
+            io,
             cpu_ram,
             ppu,
             dma,
             cartridge,
             cpu,
             vram,
-            pixels,
             cycle: Cell::new(Cycle::T1),
         }
     }
@@ -82,15 +70,6 @@ impl Nes {
     fn vram(&self) -> &[Cell<u8>] {
         let ram: &Cell<[u8]> = &self.vram;
         ram.as_slice_of_cells()
-    }
-
-    fn pixels(&self) -> &[Cell<Color>] {
-        let ram: &Cell<[Color]> = &self.pixels;
-        ram.as_slice_of_cells()
-    }
-
-    pub fn get_pixel(&self, row: u16, col: u16) -> Color {
-        self.pixels()[(row * 256 + col) as usize].get()
     }
 
     pub fn tick(&self) {
@@ -155,7 +134,7 @@ impl Nes {
     }
 }
 
-impl CpuHostAccess for Nes {
+impl<I: IO> CpuHostAccess for Nes<I> {
     fn read(&self, addr: u16) -> u8 {
         let ram = self.ram();
         match addr {
@@ -203,7 +182,7 @@ impl CpuHostAccess for Nes {
     }
 }
 
-impl PPUHostAccess for Nes {
+impl<I: IO> PPUHostAccess for Nes<I> {
     fn ppu_read(&self, addr: u16) -> u8 {
         self.cartridge.read_ppu(self.vram(), addr)
     }
@@ -216,8 +195,8 @@ impl PPUHostAccess for Nes {
         self.cpu.set_nmi();
     }
 
-    fn ppu_set_pixel(&self, row: u16, col: u16, color: Color) {
-        self.pixels()[(row * 256 + col) as usize].set(color);
+    fn ppu_set_pixel(&self, row: u16, col: u16, r: u8, g: u8, b: u8) {
+        self.io.set_pixel(row, col, r, g, b);
     }
 }
 
@@ -260,7 +239,7 @@ impl DMA {
         self.state.set(DMAState::Req { addr_high: value });
     }
 
-    pub fn tick(&self, nes: &Nes) -> bool {
+    pub fn tick<I: IO>(&self, nes: &Nes<I>) -> bool {
         let is_odd = self.is_odd.get();
         self.is_odd.set(!is_odd);
 
@@ -300,4 +279,9 @@ impl DMA {
         self.state.set(next_state);
         tick_cpu
     }
+}
+
+pub struct DummyIO;
+impl IO for DummyIO {
+    fn set_pixel(&self, row: u16, col: u16, r: u8, g: u8, b: u8) {}
 }

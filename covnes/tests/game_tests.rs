@@ -1,6 +1,6 @@
 use covnes::cpu;
 use covnes::romfiles::RomFile;
-use covnes::system::Nes;
+use covnes::system::{Nes, DummyIO};
 use covnes::mappers;
 use failure::Error;
 use regex::Regex;
@@ -41,7 +41,8 @@ fn log_cmp(game: &str) -> Result<(), Error> {
 
     let rom = RomFile::from_read(&mut f)?;
     let cart = mappers::from_rom(rom)?;
-    let mut nes = Nes::new();
+    let io = DummyIO;
+    let mut nes = Nes::new(io);
 
     nes.insert_cartridge(cart);
 

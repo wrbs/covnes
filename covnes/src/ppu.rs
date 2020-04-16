@@ -1,4 +1,3 @@
-use crate::system::Color;
 use std::cell::Cell;
 use std::process::id;
 use crate::pallette;
@@ -49,7 +48,7 @@ pub trait PPUHostAccess {
     fn ppu_read(&self, addr: u16) -> u8;
     fn ppu_write(&self, addr: u16, value: u8);
     fn ppu_trigger_nmi(&self);
-    fn ppu_set_pixel(&self, row: u16, col: u16, color: Color);
+    fn ppu_set_pixel(&self, row: u16, col: u16, r: u8, g: u8, b: u8);
 }
 
 bitflags! {
@@ -340,8 +339,8 @@ impl PPU {
             let fg_pallette = 0;
             let pallette_index = bg_pallette;
 
-            let pixel_col = pallette::get_rgb(self.read(host, 0x3F00 + pallette_index));
-            host.ppu_set_pixel(self.scanline.get(), x, pixel_col);
+            let (r, g, b) = pallette::get_rgb(self.read(host, 0x3F00 + pallette_index));
+            host.ppu_set_pixel(self.scanline.get(), x, r, g, b);
         }
 
         self.bg_low_shift.set(self.bg_low_shift.get() << 1);
