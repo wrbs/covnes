@@ -1,9 +1,9 @@
-use covnes::romfiles::RomFile;
-use covnes::system::{Nes, IO};
+use covnes::system::Nes;
+use covnes::io::{StandardControllerButtons, SingleStandardControllerIO, SingleStandardController};
 use covnes::mappers;
 use failure::{err_msg, Error};
 use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::{Keycode, Scancode};
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use std::time::{Duration, SystemTime};
@@ -11,6 +11,18 @@ use structopt::StructOpt;
 use std::path::PathBuf;
 use std::cell::Cell;
 use sdl2::Sdl;
+use covnes::romfiles::RomFile;
+
+const KEYMAP: &[(Scancode, StandardControllerButtons)] = &[
+    (Scancode::W, StandardControllerButtons::Up),
+    (Scancode::A, StandardControllerButtons::Left),
+    (Scancode::S, StandardControllerButtons::Down),
+    (Scancode::D, StandardControllerButtons::Right),
+    (Scancode::J, StandardControllerButtons::A),
+    (Scancode::K, StandardControllerButtons::B),
+    (Scancode::U, StandardControllerButtons::Select),
+    (Scancode::I, StandardControllerButtons::Start),
+];
 
 #[derive(Debug, StructOpt)]
 struct Opt {
@@ -24,7 +36,7 @@ fn main() -> Result<(), Error> {
     let scale = 3;
     let rom = RomFile::from_filename(opt.romfile)?;
     let io = SdlIO::new();
-    let mut nes = Nes::new(io);
+    let mut nes = Nes::new(SingleStandardController::new(io));
     let cart = mappers::from_rom(rom)?;
 
     nes.insert_cartridge(cart);
@@ -51,7 +63,7 @@ fn main() -> Result<(), Error> {
         canvas.clear();
         for row in 0..240 {
             for col in 0..256 {
-                let (r, g, b) = nes.io.get_pixel(row, col);
+                let (r, g, b) = nes.io.io.get_pixel(row, col);
                 canvas.set_draw_color(Color::RGB(r, g, b));
                 canvas
                     .fill_rect(Rect::new(
@@ -87,6 +99,16 @@ fn main() -> Result<(), Error> {
         }
         // The rest of the game loop goes here...
 
+        let mut buttons = StandardControllerButtons::empty();
+        let keys = event_pump.keyboard_state();
+        for &(sc, k) in KEYMAP {
+            if keys.is_scancode_pressed(sc) {
+                buttons |= k;
+            }
+        }
+
+        nes.io.io.current_key_state.set(buttons);
+
         nes.step_frame();
         fc += 1;
 
@@ -101,12 +123,14 @@ fn main() -> Result<(), Error> {
 
 struct SdlIO {
     pixels: Cell<[(u8, u8, u8); 256 * 240]>,
+    current_key_state: Cell<StandardControllerButtons>,
 }
 
 impl SdlIO {
     fn new() -> SdlIO {
         SdlIO {
-            pixels: Cell::new([(0, 0, 0); 256 * 240])
+            pixels: Cell::new([(0, 0, 0); 256 * 240]),
+            current_key_state: Cell::new(StandardControllerButtons::empty())
         }
     }
 
@@ -120,8 +144,12 @@ impl SdlIO {
     }
 }
 
-impl IO for SdlIO {
+impl SingleStandardControllerIO for SdlIO {
     fn set_pixel(&self, row: u16, col: u16, r: u8, g: u8, b: u8) {
         self.pixels()[row as usize * 256 + col as usize].set((r, g, b));
+    }
+
+    fn poll_buttons(&self) -> StandardControllerButtons {
+        self.current_key_state.get()
     }
 }

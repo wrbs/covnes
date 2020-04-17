@@ -4,10 +4,7 @@ use crate::mappers::Cartridge;
 use crate::ppu::{PPUHostAccess, PPU};
 use crate::romfiles::RomFile;
 use std::cell::Cell;
-
-pub trait IO {
-    fn set_pixel(&self, row: u16, col: u16, r: u8, g: u8, b: u8);
-}
+use crate::io::IO;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Cycle {
@@ -25,6 +22,7 @@ pub struct Nes<I: IO> {
     pub cpu_ram: Cell<[u8; 2048]>,
     pub cycle: Cell<Cycle>,
     pub vram: Cell<[u8; 2048]>,
+    pub controller_latch: Cell<bool>,
 }
 
 impl<I: IO> Nes<I> {
@@ -45,6 +43,7 @@ impl<I: IO> Nes<I> {
             cpu,
             vram,
             cycle: Cell::new(Cycle::T1),
+            controller_latch: Cell::new(false)
         }
     }
 
@@ -146,6 +145,13 @@ impl<I: IO> CpuHostAccess for Nes<I> {
                 let ppu_reg = ((addr - 0x2000) % 8) as u8;
                 self.ppu.reg_read(self, ppu_reg)
             }
+            0x4016 => {
+                // TODO open bus if I ever implement that
+                self.io.controller_port_1_read().bits()
+            }
+            0x4017 => {
+                self.io.controller_port_2_read().bits()
+            }
             0x4000..=0x4017 => {
                 // println!("APU Read: 0x{:04x}", addr);
                 0
@@ -169,6 +175,14 @@ impl<I: IO> CpuHostAccess for Nes<I> {
                 self.ppu.reg_write(self, ppu_reg, value);
             }
             0x4014 => self.dma.trigger_oamdma(value),
+            0x4016 => {
+                let new_l = value & 1 == 1;
+                let current_l = self.controller_latch.get();
+                if new_l != current_l {
+                    self.controller_latch.set(new_l);
+                    self.io.controller_latch_change(new_l);
+                }
+            }
             0x4000..=0x4017 => {
                 // println!("APU Write: 0x{:04x} {}", addr, value);
             }
@@ -279,9 +293,4 @@ impl DMA {
         self.state.set(next_state);
         tick_cpu
     }
-}
-
-pub struct DummyIO;
-impl IO for DummyIO {
-    fn set_pixel(&self, row: u16, col: u16, r: u8, g: u8, b: u8) {}
 }

@@ -1,7 +1,8 @@
 use covnes::cpu;
 use covnes::cpu::CpuHostAccess;
 use covnes::romfiles::RomFile;
-use covnes::system::{Nes, DummyIO};
+use covnes::system::Nes;
+use covnes::io::DummyIO;
 use covnes::mappers;
 use failure::Error;
 use regex::Regex;

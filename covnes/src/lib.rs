@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate bitflags;
 
+pub mod io;
 pub mod cpu;
 pub mod mappers;
 pub mod ppu;

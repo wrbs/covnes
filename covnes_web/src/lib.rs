@@ -1,7 +1,8 @@
 mod utils;
 
 use wasm_bindgen::prelude::*;
-use covnes::system::{Nes, IO};
+use covnes::system::Nes;
+use covnes::io::{StandardControllerButtons, SingleStandardControllerIO, SingleStandardController};
 use std::cell::Cell;
 use covnes::romfiles::RomFile;
 use covnes::mappers;
@@ -29,13 +30,13 @@ pub fn greet() {
 
 #[wasm_bindgen]
 pub struct EmulatorState {
-    nes: Nes<WasmIO>,
+    nes: Nes<SingleStandardController<WasmIO>>,
 }
 
 #[wasm_bindgen]
 impl EmulatorState {
     pub fn new() -> EmulatorState {
-        let io = WasmIO::new();
+        let io = SingleStandardController::new(WasmIO::new());
         EmulatorState {
             nes: Nes::new(io),
         }
@@ -46,7 +47,7 @@ impl EmulatorState {
     }
 
     pub fn get_video(&self) -> *mut [u8; 256 * 240 * 3] {
-        self.nes.io.video_mem.as_ptr()
+        self.nes.io.io.video_mem.as_ptr()
     }
 
     pub fn load_rom(&mut self, mut rom: &[u8]) -> Result<(), JsValue> {
@@ -72,7 +73,7 @@ impl WasmIO {
     }
 }
 
-impl IO for WasmIO {
+impl SingleStandardControllerIO for WasmIO {
     fn set_pixel(&self, row: u16, col: u16, r: u8, g: u8, b: u8) {
         let f: &Cell<[u8]> = &self.video_mem;
         let idx = (row as usize * 256 + col as usize) * 3;
@@ -80,5 +81,9 @@ impl IO for WasmIO {
         s[idx].set(r);
         s[idx + 1].set(g);
         s[idx + 2].set(b);
+    }
+
+    fn poll_buttons(&self) -> StandardControllerButtons {
+        StandardControllerButtons::empty()
     }
 }
