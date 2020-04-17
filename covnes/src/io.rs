@@ -3,12 +3,12 @@ bitflags! {
     pub struct StandardControllerButtons: u8 {
         const A = 0x01;
         const B = 0x02;
-        const Select = 0x04;
-        const Start = 0x08;
-        const Up = 0x10;
-        const Down = 0x20;
-        const Left = 0x40;
-        const Right = 0x80;
+        const SELECT = 0x04;
+        const START = 0x08;
+        const UP = 0x10;
+        const DOWN = 0x20;
+        const LEFT = 0x40;
+        const RIGHT = 0x80;
     }
 }
 
@@ -78,11 +78,11 @@ impl<I: SingleStandardControllerIO> IO for SingleStandardController<I> {
             let mut buttons = self.io.poll_buttons();
 
             // Remove impossible combinations
-            if buttons.contains(StandardControllerButtons::Up | StandardControllerButtons::Down) {
-                buttons.remove(StandardControllerButtons::Down);
+            if buttons.contains(StandardControllerButtons::UP | StandardControllerButtons::DOWN) {
+                buttons.remove(StandardControllerButtons::DOWN);
             }
-            if buttons.contains(StandardControllerButtons::Left | StandardControllerButtons::Right) {
-                buttons.remove(StandardControllerButtons::Right);
+            if buttons.contains(StandardControllerButtons::LEFT | StandardControllerButtons::RIGHT) {
+                buttons.remove(StandardControllerButtons::RIGHT);
             }
 
             self.latch.set(buttons.bits());

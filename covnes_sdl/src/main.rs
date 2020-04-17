@@ -14,14 +14,14 @@ use sdl2::Sdl;
 use covnes::romfiles::RomFile;
 
 const KEYMAP: &[(Scancode, StandardControllerButtons)] = &[
-    (Scancode::W, StandardControllerButtons::Up),
-    (Scancode::A, StandardControllerButtons::Left),
-    (Scancode::S, StandardControllerButtons::Down),
-    (Scancode::D, StandardControllerButtons::Right),
+    (Scancode::W, StandardControllerButtons::UP),
+    (Scancode::A, StandardControllerButtons::LEFT),
+    (Scancode::S, StandardControllerButtons::DOWN),
+    (Scancode::D, StandardControllerButtons::RIGHT),
     (Scancode::J, StandardControllerButtons::A),
     (Scancode::K, StandardControllerButtons::B),
-    (Scancode::U, StandardControllerButtons::Select),
-    (Scancode::I, StandardControllerButtons::Start),
+    (Scancode::U, StandardControllerButtons::SELECT),
+    (Scancode::I, StandardControllerButtons::START),
 ];
 
 #[derive(Debug, StructOpt)]

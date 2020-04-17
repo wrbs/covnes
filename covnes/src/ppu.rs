@@ -9,6 +9,8 @@ pub struct PPU {
     // internal ram
     pub cgram: Cell<[u8; 0x20]>,
     pub oam: Cell<[u8; 0x100]>,
+    // Holds 8 sprites to be rendered on the following scanline
+    pub secondary_oam: Cell<[u8; 32]>,
 
     // state, registers (external and internal), etc.
     pub scanline: Cell<u16>,
@@ -113,7 +115,8 @@ impl PPU {
             fine_x: Cell::new(0),
             bg_low_shift: Cell::new(0),
             at_shift_l: Cell::new(0),
-            at_shift_h: Cell::new(0)
+            at_shift_h: Cell::new(0),
+            secondary_oam: Cell::new([0; 32])
         }
     }
 

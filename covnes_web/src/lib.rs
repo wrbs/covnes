@@ -18,15 +18,10 @@ pub fn init() {
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-#[wasm_bindgen]
-extern {
-    fn alert(s: &str);
-}
-
-#[wasm_bindgen]
-pub fn greet() {
-    alert("Hello, covnes-web!");
-}
+// #[wasm_bindgen]
+// extern {
+//     fn alert(s: &str);
+// }
 
 #[wasm_bindgen]
 pub struct EmulatorState {
@@ -42,7 +37,8 @@ impl EmulatorState {
         }
     }
 
-    pub fn tick_cycle(&self) -> usize {
+    pub fn tick_cycle(&self, buttons: u8) -> usize {
+        self.nes.io.io.buttons.set(StandardControllerButtons::from_bits_truncate(buttons));
         self.nes.step_frame()
     }
 
@@ -63,12 +59,14 @@ impl EmulatorState {
 #[wasm_bindgen]
 pub struct WasmIO {
     video_mem: Cell<[u8; 240 * 256 * 3]>,
+    buttons: Cell<StandardControllerButtons>,
 }
 
 impl WasmIO {
     fn new() -> WasmIO {
         WasmIO {
             video_mem: Cell::new([0; 240 * 256 * 3]),
+            buttons: Cell::new(StandardControllerButtons::empty())
         }
     }
 }
@@ -84,6 +82,6 @@ impl SingleStandardControllerIO for WasmIO {
     }
 
     fn poll_buttons(&self) -> StandardControllerButtons {
-        StandardControllerButtons::empty()
+        self.buttons.get()
     }
 }
