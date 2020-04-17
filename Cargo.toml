@@ -3,5 +3,5 @@
 members = [
     "covnes",
     "covnes_sdl",
-    "covnes-web"
+    "covnes_web"
 ]
