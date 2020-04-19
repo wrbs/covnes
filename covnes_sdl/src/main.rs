@@ -1,6 +1,6 @@
-use covnes::system::Nes;
-use covnes::io::{StandardControllerButtons, SingleStandardControllerIO, SingleStandardController};
-use covnes::{mappers, palette};
+use covnes::nes::Nes;
+use covnes::nes::io::{StandardControllerButtons, SingleStandardControllerIO, SingleStandardController};
+use covnes::nes::{mappers, palette};
 use failure::{err_msg, Error};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Scancode};
@@ -12,9 +12,8 @@ use std::path::PathBuf;
 use std::cell::Cell;
 use sdl2::Sdl;
 use covnes::romfiles::RomFile;
-use covnes::cpu::CpuHostAccess;
-use covnes::ppu::PPUHostAccess;
-use covnes::system::DMAState::DummyRead;
+use covnes::nes::cpu::CpuHostAccess;
+use covnes::nes::ppu::PPUHostAccess;
 
 const KEYMAP: &[(Scancode, StandardControllerButtons)] = &[
     (Scancode::W, StandardControllerButtons::UP),
@@ -52,7 +51,7 @@ fn main() -> Result<(), Error> {
         .position_centered()
         .build()?;
 
-    let mut canvas = window.into_canvas().build().map_err(err_msg)?;
+    let mut canvas = window.into_canvas().present_vsync().build().map_err(err_msg)?;
 
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
@@ -62,9 +61,12 @@ fn main() -> Result<(), Error> {
     let start = Instant::now();
     let mut offset = Duration::from_secs(0);
     let mut time_stepping = 0.0;
+    let mut time_rendering = 0.0;
     let mut fc = 0;
+    let mut last_fc = 0;
+    let mut last_time = Instant::now();
     'running: loop {
-        let frame_start = Instant::now();
+        let ps = Instant::now();
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
         for row in 0..240 {
@@ -81,6 +83,7 @@ fn main() -> Result<(), Error> {
                     .map_err(err_msg)?;
             }
         }
+        time_rendering += ps.elapsed().as_secs_f32();
 
         for event in event_pump.poll_iter() {
             match event {
@@ -119,22 +122,27 @@ fn main() -> Result<(), Error> {
         nes.step_frame();
         time_stepping += ps.elapsed().as_secs_f32();
 
-        fc += 1;
-
         canvas.present();
 
-        // let elapsed = frame_start.elapsed();
-        // let target = Duration::from_secs_f32(1.0 / 60.0);
-        // if elapsed < target {
-        //     std::thread::sleep(target - elapsed);
-        // }
+        fc += 1;
+
+        if last_time.elapsed().as_secs_f32() > 1.0 {
+
+            let ms_per_frame = 1000.0 / (fc - last_fc) as f32;
+            canvas.window_mut().set_title(format!("covnes: {:.2}ms/frame", ms_per_frame).as_str());
+            last_fc = fc;
+            last_time += Duration::from_secs(1);
+        }
+
     }
 
     let elapsed = start.elapsed();
-    println!("{} frames in {:?} = {} average fps", fc, elapsed, fc as f32 / elapsed.as_secs_f32());
+    println!("{} frames in {:?} = {} ms/frame, {} average fps", fc, elapsed, 1000.0 * elapsed.as_secs_f32() / fc as f32, fc as f32 / elapsed.as_secs_f32());
 
     let step_per_frame = time_stepping / fc as f32;
-    println!("Spent {} stepping each frame: {}%", step_per_frame, time_stepping / elapsed.as_secs_f32());
+    println!("Spent {}ms stepping each frame: {}%", step_per_frame * 1000.0, time_stepping / elapsed.as_secs_f32());
+    let render_per_frame = time_rendering / fc as f32;
+    println!("Spent {}ms rendering each frame: {}%", render_per_frame * 1000.0, time_rendering / elapsed.as_secs_f32());
     Ok(())
 }
 

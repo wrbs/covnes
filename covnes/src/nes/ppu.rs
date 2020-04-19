@@ -1,5 +1,5 @@
 use std::cell::Cell;
-use crate::palette;
+use crate::nes::palette;
 
 // I got a *LOT* of help from reading https://github.com/AndreaOrru/LaiNES/blob/master/src/ppu.cpp
 // in addition to (of course) NesDEV
@@ -56,6 +56,7 @@ pub struct PPU {
     // Sprite rendering
     pub sprites: [SpriteToRender; 8],
     pub sprite_zero_current_scanline: Cell<bool>,
+    pub num_sprites: Cell<usize>,
 
     // Obscure timing fixes
     pub perform_skip: Cell<bool>,
@@ -173,7 +174,8 @@ impl PPU {
             perform_skip: Cell::new(false),
             sprites: Default::default(),
             sprite_zero_next_scanline: Cell::new(false),
-            sprite_zero_current_scanline: Cell::new(false)
+            sprite_zero_current_scanline: Cell::new(false),
+            num_sprites: Cell::new(0)
         }
     }
 
@@ -455,7 +457,7 @@ impl PPU {
             {
                 let mut palette = 0;
                 let mut prio_behind = true;
-                for i in (0..8).rev() {
+                for i in (0..self.num_sprites.get()).rev() {
                     let sprite_x = self.sprites[i].x.get() as u16;
                     if sprite_x <= x && x < sprite_x + 8 {
                         let mut offset = (x - sprite_x) as u8;
@@ -508,6 +510,9 @@ impl PPU {
     pub fn tick<P: PPUHostAccess>(&self, host: &P) {
 
         // Sprite evaluation and loading - only on visible scanlines
+        if self.is_rendering() && self.dot.get() == 257 {
+            self.num_sprites.set(0)
+        }
         if self.is_rendering() && self.scanline.get() <= 239 {
             match self.dot.get() {
                 1..=256 => self.perform_sprite_evaluation(),
@@ -551,20 +556,25 @@ impl PPU {
                                 base + tile_index as u16 * 16
                             };
 
-                            let mut y_offset = self.scanline.get().wrapping_sub(y as u16) % self.get_sprite_size() as u16;
+                            if y < 240 {
+                                let mut y_offset = self.scanline.get().wrapping_sub(y as u16) % self.get_sprite_size() as u16;
 
-                            if attributes.contains(SpriteAttributes::FLIP_VERT) {
-                                y_offset = self.get_sprite_size() as u16 - y_offset - 1;
+                                if attributes.contains(SpriteAttributes::FLIP_VERT) {
+                                    y_offset = self.get_sprite_size() as u16 - y_offset - 1;
+                                }
+
+                                if y_offset > 8 {
+                                    self.fetch_addr.set(addr + 16 + (y_offset - 8));
+                                } else {
+                                    self.fetch_addr.set(addr + y_offset)
+                                }
+
+                                self.sprites[sprite_no].x.set(x);
+                                self.sprites[sprite_no].attributes.set(attributes);
+
+                                self.num_sprites.set(sprite_no + 1);
                             }
 
-                            if y_offset > 8 {
-                                self.fetch_addr.set(addr + 16 + (y_offset - 8));
-                            } else {
-                                self.fetch_addr.set(addr + y_offset)
-                            }
-
-                            self.sprites[sprite_no].x.set(x);
-                            self.sprites[sprite_no].attributes.set(attributes);
                         },
                         5 => {
                             let mut s = self.read(host, self.fetch_addr.get());

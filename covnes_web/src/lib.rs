@@ -1,11 +1,11 @@
 mod utils;
 
 use wasm_bindgen::prelude::*;
-use covnes::system::Nes;
-use covnes::io::{StandardControllerButtons, SingleStandardControllerIO, SingleStandardController};
+use covnes::nes::Nes;
+use covnes::nes::io::{StandardControllerButtons, SingleStandardControllerIO, SingleStandardController};
 use std::cell::Cell;
 use covnes::romfiles::RomFile;
-use covnes::mappers;
+use covnes::nes::mappers;
 
 #[wasm_bindgen]
 pub fn init() {

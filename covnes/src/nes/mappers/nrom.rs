@@ -1,8 +1,8 @@
-use crate::mappers::{Cartridge, common};
 use crate::romfiles::{Mirroring, RomFile};
 use failure::{Error, bail};
 use std::cell::Cell;
-use crate::mappers::common::MirrorMode;
+use crate::nes::mappers::{Cartridge, common};
+use crate::nes::mappers::common::MirrorMode;
 
 pub fn from_rom(rom: RomFile) -> Result<Box<dyn Cartridge>, Error> {
     let mirror_prg_rom = rom.prg_rom.len() == 16384;

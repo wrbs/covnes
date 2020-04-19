@@ -1,14 +1,13 @@
-use covnes::cpu;
+use covnes::nes::cpu;
 use covnes::romfiles::RomFile;
-use covnes::system::Nes;
-use covnes::io::DummyIO;
-use covnes::mappers;
+use covnes::nes::Nes;
+use covnes::nes::io::DummyIO;
+use covnes::nes::mappers;
 use failure::Error;
 use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::pin::Pin;
-use covnes::cpu::CpuHostAccess;
+use covnes::nes::cpu::CpuHostAccess;
 
 // These test me against LaiNES. LaiNES is not perfect by any means but it provides an easy way to
 // troubleshoot obvious issues. I couldn't get the timing to align with mesen, it's too accurate for

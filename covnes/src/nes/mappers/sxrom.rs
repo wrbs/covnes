@@ -1,8 +1,8 @@
-use crate::mappers::{Cartridge, common};
-use crate::romfiles::{Mirroring, RomFile};
-use failure::{Error, bail};
+use crate::nes::mappers::{Cartridge, common};
+use crate::romfiles::RomFile;
+use failure::Error;
 use std::cell::Cell;
-use crate::mappers::common::MirrorMode;
+use crate::nes::mappers::common::MirrorMode;
 
 const LOAD_REG_INITIAL: u8 = 0b10000;
 

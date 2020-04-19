@@ -1,4 +1,4 @@
-use crate::romfiles::{Mirroring, RomFile};
+use crate::romfiles::RomFile;
 use failure::{bail, Error};
 use std::cell::Cell;
 
