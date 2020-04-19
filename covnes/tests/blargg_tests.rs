@@ -12,7 +12,7 @@ use std::pin::Pin;
 
 fn do_rom(name: &str) -> Result<(), Error> {
     // Load up the rom
-    let path = format!("../roms/test/instr_test-v5/rom_singles/{}.nes", name);
+    let path = format!("../roms/test/{}.nes", name);
     let mut f = File::open(path)?;
     let mut rom = RomFile::from_read(&mut f)?;
     // Hmmm, todo look into why I have to do this...
@@ -57,111 +57,60 @@ fn do_rom(name: &str) -> Result<(), Error> {
         if code == 0 {
             break;
         } else if code != 0x80 {
-            panic!("Status: {:2X} {}", code, status)
+            panic!("Status: {:2X}\n{}", code, status)
         }
     }
 
     Ok(())
 }
 
-#[test]
-fn basics() -> Result<(), Error> {
-    do_rom("01-basics")
+fn do_rom_instr_test_v5(name: &str) -> Result<(), Error> {
+    do_rom(format!("instr_test-v5/rom_singles/{}", name).as_str())
 }
 
 #[test]
-fn implied() -> Result<(), Error> {
-    do_rom("02-implied")
+fn ppu_sprite_overflow() -> Result<(), Error> {
+    do_rom("ppu_sprite_overflow")
 }
 
 #[test]
-fn immediate() -> Result<(), Error> {
-    do_rom("03-immediate")
+fn ppu_sprite_hit() -> Result<(), Error> {
+    do_rom("ppu_sprite_hit")
 }
 
 #[test]
-fn zero_page() -> Result<(), Error> {
-    do_rom("04-zero_page")
+fn ppu_vbl_nmi() -> Result<(), Error> {
+    do_rom("ppu_vbl_nmi")
 }
 
 #[test]
-fn zp_xy() -> Result<(), Error> {
-    do_rom("05-zp_xy")
+fn instr_test_v5() -> Result<(), Error> {
+    do_rom("instr_test-v5")
 }
 
 #[test]
-fn absolute() -> Result<(), Error> {
-    do_rom("06-absolute")
-}
-
-#[test]
-fn abs_xy() -> Result<(), Error> {
-    do_rom("07-abs_xy")
-}
-
-#[test]
-fn ind_x() -> Result<(), Error> {
-    do_rom("08-ind_x")
-}
-
-#[test]
-fn ind_y() -> Result<(), Error> {
-    do_rom("09-ind_y")
-}
-
-#[test]
-fn branches() -> Result<(), Error> {
-    do_rom("10-branches")
-}
-
-#[test]
-fn stack() -> Result<(), Error> {
-    do_rom("11-stack")
-}
-
-#[test]
-fn jmp_jsr() -> Result<(), Error> {
-    do_rom("12-jmp_jsr")
-}
-
-#[test]
-fn rts() -> Result<(), Error> {
-    do_rom("13-rts")
-}
-
-#[test]
-fn rti() -> Result<(), Error> {
-    do_rom("14-rti")
-}
-
-#[test]
-fn brk() -> Result<(), Error> {
-    do_rom("15-brk")
-}
-
-#[test]
-fn special() -> Result<(), Error> {
-    do_rom("16-special")
+fn oam_read() -> Result<(), Error> {
+    do_rom("oam_read")
 }
 
 #[test]
 fn m_abs_x_wrap() -> Result<(), Error> {
-    do_rom("instr_misc/01-abs_x_wrap")
+    do_rom_instr_test_v5("instr_misc/01-abs_x_wrap")
 }
 
 #[test]
 fn m_branch_wrap() -> Result<(), Error> {
-    do_rom("instr_misc/02-branch_wrap")
+    do_rom_instr_test_v5("instr_misc/02-branch_wrap")
 }
 
 #[test]
 fn m_dummy_read() -> Result<(), Error> {
-    do_rom("instr_misc/03-dummy_reads")
+    do_rom_instr_test_v5("instr_misc/03-dummy_reads")
 }
 
 /*
 #[test]
 fn m_dummy_read_apu() -> Result<(), Error> {
-    do_rom("instr_misc/04-dummy_reads_apu")
+    do_rom_instr_test_v5("instr_misc/04-dummy_reads_apu")
 }
 */

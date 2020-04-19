@@ -1,17 +1,20 @@
 use covnes::system::Nes;
 use covnes::io::{StandardControllerButtons, SingleStandardControllerIO, SingleStandardController};
-use covnes::mappers;
+use covnes::{mappers, palette};
 use failure::{err_msg, Error};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Scancode};
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use std::path::PathBuf;
 use std::cell::Cell;
 use sdl2::Sdl;
 use covnes::romfiles::RomFile;
+use covnes::cpu::CpuHostAccess;
+use covnes::ppu::PPUHostAccess;
+use covnes::system::DMAState::DummyRead;
 
 const KEYMAP: &[(Scancode, StandardControllerButtons)] = &[
     (Scancode::W, StandardControllerButtons::UP),
@@ -56,9 +59,12 @@ fn main() -> Result<(), Error> {
     canvas.present();
     
     let mut event_pump = sdl_context.event_pump().map_err(err_msg)?;
+    let start = Instant::now();
+    let mut offset = Duration::from_secs(0);
+    let mut time_stepping = 0.0;
     let mut fc = 0;
-    let start = SystemTime::now();
     'running: loop {
+        let frame_start = Instant::now();
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
         for row in 0..240 {
@@ -109,15 +115,26 @@ fn main() -> Result<(), Error> {
 
         nes.io.io.current_key_state.set(buttons);
 
+        let ps = Instant::now();
         nes.step_frame();
+        time_stepping += ps.elapsed().as_secs_f32();
+
         fc += 1;
 
         canvas.present();
+
+        // let elapsed = frame_start.elapsed();
+        // let target = Duration::from_secs_f32(1.0 / 60.0);
+        // if elapsed < target {
+        //     std::thread::sleep(target - elapsed);
+        // }
     }
 
-    let elapsed = start.elapsed().unwrap();
+    let elapsed = start.elapsed();
     println!("{} frames in {:?} = {} average fps", fc, elapsed, fc as f32 / elapsed.as_secs_f32());
 
+    let step_per_frame = time_stepping / fc as f32;
+    println!("Spent {} stepping each frame: {}%", step_per_frame, time_stepping / elapsed.as_secs_f32());
     Ok(())
 }
 
