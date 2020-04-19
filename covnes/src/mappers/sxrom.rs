@@ -15,8 +15,8 @@ pub fn from_rom(rom: RomFile) -> Result<Box<dyn Cartridge>, Error> {
     // on the high address lines
 
     // These assertions are false in general
-    assert_eq!(rom.prg_rom.len(), 256 * 1024);
     assert!(rom.chr_rom == None);
+    assert!(rom.prg_rom.len() == 256 * 1024 || rom.prg_rom.len() == 128 * 1024);
 
     let prg_ram = Cell::new([0; 0x2000]);
     let chr_ram = Cell::new([0; 0x2000]);

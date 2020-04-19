@@ -9,6 +9,6 @@ pub mod mappers;
 pub mod ppu;
 pub mod romfiles;
 pub mod system;
-pub mod pallette;
+pub mod palette;
 
 pub use system::Nes;

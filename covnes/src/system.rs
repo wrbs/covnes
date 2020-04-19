@@ -79,6 +79,7 @@ impl<I: IO> Nes<I> {
                 Cycle::T2
             }
             Cycle::T2 => {
+                self.cpu.poll_interrupts();
                 self.ppu.tick(self);
                 Cycle::T3
             }
@@ -207,6 +208,10 @@ impl<I: IO> PPUHostAccess for Nes<I> {
 
     fn ppu_trigger_nmi(&self) {
         self.cpu.set_nmi();
+    }
+
+    fn ppu_suppress_nmi(&self) {
+        self.cpu.clear_nmi();
     }
 
     fn ppu_set_pixel(&self, row: u16, col: u16, r: u8, g: u8, b: u8) {

@@ -19,8 +19,8 @@ pub struct CPU {
     pub x: Cell<u8>,
     pub y: Cell<u8>,
     pub state: Cell<State>,
-    pub nmi: Cell<Option<bool>>,
-    pub irq: Cell<Option<bool>>,
+    pub nmi: Cell<Option<usize>>,
+    pub irq: Cell<Option<usize>>,
 }
 
 impl CPU {
@@ -45,7 +45,27 @@ impl CPU {
     }
 
     pub fn set_nmi(&self) {
-        self.nmi.set(Some(false));
+        if self.nmi.get() == None {
+            self.nmi.set(Some(0));
+        }
+    }
+
+    pub fn clear_nmi(&self) {
+        self.nmi.set(None);
+    }
+
+    pub fn poll_interrupts(&self) {
+        match self.nmi.get() {
+            Some(0) => self.nmi.set(Some(1)),
+            Some(1) => self.nmi.set(Some(2)),
+            _ => (),
+        }
+
+        match self.irq.get() {
+            Some(0) => self.irq.set(Some(1)),
+            Some(1) => self.irq.set(Some(2)),
+            _ => (),
+        }
     }
 
     // Use to initialise test roms with automated modes
@@ -348,19 +368,17 @@ impl CPU {
                     self.irq.set(None);
                 }
 
-                if self.nmi.get() == Some(true) {
+                if self.nmi.get() == Some(2) {
                     self.nmi.set(None);
                     S::Int(Interrupt::NMI)
-                } else if self.irq.get() == Some(true) {
+                } else if self.irq.get() == Some(2) {
                     self.nmi.set(None);
                     S::Int(Interrupt::IRQ)
                 } else {
-                    let opcode = {
-                        let pc = self.pc.get();
-                        let opcode = host.read(pc);
-                        self.pc.set(pc.wrapping_add(1));
-                        opcode
-                    };
+                    let pc = self.pc.get();
+                    let opcode = host.read(pc);
+                    self.pc.set(pc.wrapping_add(1));
+
                     match opcode {
                         // ADC
                         0x69 => S::ImmediateR(ReadOp::ADC),
@@ -1137,16 +1155,6 @@ impl CPU {
         };
 
         self.state.set(State(next_state));
-        match self.nmi.get() {
-            Some(false) => self.nmi.set(Some(true)),
-            _ => (),
-        }
-
-        match self.irq.get() {
-            Some(false) => self.irq.set(Some(true)),
-            _ => (),
-        }
-
     }
 }
 
