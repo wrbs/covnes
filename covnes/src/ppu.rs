@@ -1,5 +1,4 @@
 use std::cell::Cell;
-use std::process::id;
 use crate::palette;
 
 // I got a *LOT* of help from reading https://github.com/AndreaOrru/LaiNES/blob/master/src/ppu.cpp
@@ -496,7 +495,6 @@ impl PPU {
             } else {
                 bg_palette
             };
-
             let (r, g, b) = palette::get_rgb(self.read(host, 0x3F00 + palette_index));
             host.ppu_set_pixel(self.scanline.get(), x, r, g, b);
         }
