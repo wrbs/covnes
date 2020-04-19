@@ -191,7 +191,7 @@ impl PPU {
     }
 
     pub fn is_at_frame_end(&self) -> bool {
-        self.dot.get() == 0 && self.scanline.get() == 0
+        self.dot.get() == 1 && self.scanline.get() == 241
     }
 
     pub fn is_rendering(&self) -> bool {

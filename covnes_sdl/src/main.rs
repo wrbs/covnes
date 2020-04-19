@@ -1,19 +1,21 @@
 use covnes::nes::Nes;
 use covnes::nes::io::{StandardControllerButtons, SingleStandardControllerIO, SingleStandardController};
 use covnes::nes::{mappers, palette};
-use failure::{err_msg, Error};
+use failure::{err_msg, Error, bail};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Scancode};
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::cell::Cell;
 use sdl2::Sdl;
 use covnes::romfiles::RomFile;
 use covnes::nes::cpu::CpuHostAccess;
 use covnes::nes::ppu::PPUHostAccess;
+use covnes::fm2_movie_file::{FM2File, Command, InputDevice, GamepadInput, ControllerConfiguration};
+use std::fs::File;
 
 const KEYMAP: &[(Scancode, StandardControllerButtons)] = &[
     (Scancode::W, StandardControllerButtons::UP),
@@ -31,10 +33,22 @@ struct Opt {
     /// ROM file to load in iNES format
     #[structopt(parse(from_os_str))]
     romfile: PathBuf,
+
+    #[structopt(short="m", long="movie_file", parse(from_os_str))]
+    movie_file: Option<PathBuf>,
+
+    #[structopt(short="s", long="sync_frames")]
+    sync_frames: Option<i32>
 }
 
 fn main() -> Result<(), Error> {
-    let opt = Opt::from_args();
+    let opt: Opt = Opt::from_args();
+    let mut movie = if let Some(m) = opt.movie_file {
+        Some(parse_movie_file(&m)?)
+    } else {
+        None
+    };
+
     let scale = 3;
     let rom = RomFile::from_filename(opt.romfile)?;
     let io = SdlIO::new();
@@ -42,6 +56,8 @@ fn main() -> Result<(), Error> {
     let cart = mappers::from_rom(rom)?;
 
     nes.insert_cartridge(cart);
+    // nes.step_frame();
+    // nes.step_frame();
 
     let sdl_context = sdl2::init().map_err(err_msg)?;
     let video_subsystem = sdl_context.video().map_err(err_msg)?;
@@ -108,15 +124,29 @@ fn main() -> Result<(), Error> {
         }
         // The rest of the game loop goes here...
 
-        let mut buttons = StandardControllerButtons::empty();
-        let keys = event_pump.keyboard_state();
-        for &(sc, k) in KEYMAP {
-            if keys.is_scancode_pressed(sc) {
-                buttons |= k;
+        match &mut movie {
+            Some((commands, buttons)) => {
+                if let Some(c) = commands.pop() {
+                    if c.contains(Command::SOFT_RESET) {
+                        nes.reset();
+                    }
+                }
+                if let Some(b) = buttons.pop() {
+                    nes.io.io.current_key_state.set(b);
+                }
+            },
+            None => {
+                let mut buttons = StandardControllerButtons::empty();
+                let keys = event_pump.keyboard_state();
+                for &(sc, k) in KEYMAP {
+                    if keys.is_scancode_pressed(sc) {
+                        buttons |= k;
+                    }
+                }
+                nes.io.io.current_key_state.set(buttons);
             }
         }
 
-        nes.io.io.current_key_state.set(buttons);
 
         let ps = Instant::now();
         nes.step_frame();
@@ -177,4 +207,31 @@ impl SingleStandardControllerIO for SdlIO {
     fn poll_buttons(&self) -> StandardControllerButtons {
         self.current_key_state.get()
     }
+}
+
+fn parse_movie_file(filename: &Path) -> Result<(Vec<Command>, Vec<GamepadInput>), Error> {
+    let mut f = File::open(filename)?;
+    let mut fm2 = FM2File::parse(&mut f)?;
+    if fm2.pal_flag || fm2.fds {
+        bail!("Unsupported movie (pal or fds)");
+    }
+    let mut commands = fm2.commands;
+    let mut buttons = match fm2.controllers {
+        ControllerConfiguration::Fourscore(_) => bail!("No fourescore please"),
+        ControllerConfiguration::Ports { port0, .. } => {
+            match port0 {
+                InputDevice::None => bail!("At least give me a controller!"),
+                InputDevice::Gamepad(b) => b,
+                InputDevice::Zapper(_) => bail!("I don't get zapper"),
+            }
+        },
+    };
+    commands.reverse();
+    buttons.reverse();
+
+    // We tend to be one frame ahead of FCEUX
+    commands.pop();
+    buttons.pop();
+
+    Ok((commands, buttons))
 }

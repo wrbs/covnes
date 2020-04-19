@@ -78,12 +78,12 @@ impl<I: SingleStandardControllerIO> IO for SingleStandardController<I> {
             let mut buttons = self.io.poll_buttons();
 
             // Remove impossible combinations
-            if buttons.contains(StandardControllerButtons::UP | StandardControllerButtons::DOWN) {
-                buttons.remove(StandardControllerButtons::DOWN);
-            }
-            if buttons.contains(StandardControllerButtons::LEFT | StandardControllerButtons::RIGHT) {
-                buttons.remove(StandardControllerButtons::RIGHT);
-            }
+            // if buttons.contains(StandardControllerButtons::UP | StandardControllerButtons::DOWN) {
+            //     buttons.remove(StandardControllerButtons::DOWN);
+            // }
+            // if buttons.contains(StandardControllerButtons::LEFT | StandardControllerButtons::RIGHT) {
+            //     buttons.remove(StandardControllerButtons::RIGHT);
+            // }
 
             self.latch.set(buttons.bits());
         }
