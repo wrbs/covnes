@@ -15,16 +15,30 @@ pub fn from_rom(rom: RomFile) -> Result<Box<dyn Cartridge>, Error> {
     // on the high address lines
 
     // These assertions are false in general
-    assert!(rom.chr_rom == None);
-    assert!(rom.prg_rom.len() == 256 * 1024 || rom.prg_rom.len() == 128 * 1024);
+    println!("{} {:?}", rom.prg_rom.len(), rom.chr_rom.as_ref().map(|x| x.len()));
+    let prg_banks = rom.prg_rom.len() / 16384;
+    assert!(prg_banks == 2 || prg_banks == 4 || prg_banks == 8 || prg_banks == 16 || prg_banks == 32);
+    if let Some(r) = &rom.chr_rom {
+        let rom_banks = r.len() / 8192;
+        assert!(rom_banks == 1 || rom_banks == 2 || rom_banks == 4 || rom_banks == 8 || rom_banks == 16);
+    }
 
-    let prg_ram = Cell::new([0; 0x2000]);
-    let chr_ram = Cell::new([0; 0x2000]);
 
-    Ok(Box::new(SNROM {
+    let chr = match rom.chr_rom {
+        None => ChrData::RAM(vec![Cell::new(0); 0x2000]),
+        Some(r) => ChrData::ROM(r),
+    };
+
+    let prg_ram = if rom.provide_prg_ram {
+        Some(vec![Cell::new(0); 0x2000])
+    } else {
+        None
+    };
+
+    Ok(Box::new(SxROM {
         prg_rom: rom.prg_rom,
         prg_ram,
-        chr_ram,
+        chr,
         load_reg: Cell::new(LOAD_REG_INITIAL),
         control: Cell::new(0b01100),
         chr_bank_0: Cell::new(0),
@@ -33,10 +47,10 @@ pub fn from_rom(rom: RomFile) -> Result<Box<dyn Cartridge>, Error> {
     }))
 }
 
-struct SNROM {
+struct SxROM {
     prg_rom: Vec<u8>,
-    chr_ram: Cell<[u8; 0x2000]>,
-    prg_ram: Cell<[u8; 0x2000]>,
+    chr: ChrData,
+    prg_ram: Option<Vec<Cell<u8>>>,
     // Registers
     load_reg: Cell<u8>,
     control: Cell<u8>,
@@ -45,17 +59,12 @@ struct SNROM {
     prg_bank: Cell<u8>,
 }
 
-impl SNROM {
-    fn chr_ram(&self) -> &[Cell<u8>] {
-        let r : &Cell<[u8]> = &self.chr_ram;
-        r.as_slice_of_cells()
-    }
+enum ChrData {
+    ROM(Vec<u8>),
+    RAM(Vec<Cell<u8>>)
+}
 
-    fn prg_ram(&self) -> &[Cell<u8>] {
-        let r : &Cell<[u8]> = &self.prg_ram;
-        r.as_slice_of_cells()
-    }
-
+impl SxROM {
     fn get_mirroring(&self) -> MirrorMode {
         match self.control.get() & 0b11 {
             0 => MirrorMode::OneScreenLower,
@@ -66,27 +75,36 @@ impl SNROM {
     }
 
     fn get_mapped_chr_addr(&self, addr: u16) -> usize {
+        let chr_size = match &self.chr {
+            ChrData::ROM(r) => r.len(),
+            ChrData::RAM(r) => r.len(),
+        };
+
         // Because we're only doing 8kb we can simplify this logic significantly
         if self.control.get() & 0x10 == 0x10 {
-           if addr < 0x1000 {
-               (self.chr_bank_0.get() as usize & 1) * 0x1000 + (addr as usize)
-           } else {
-               (self.chr_bank_1.get() as usize & 1) * 0x1000 + (addr as usize - 0x1000)
-           }
+            // Two separate 4kb bytes
+            if addr < 0x1000 {
+                (self.chr_bank_0.get() as usize * 0x1000) % chr_size + (addr as usize)
+            } else {
+                (self.chr_bank_1.get() as usize * 0x1000) % chr_size + (addr as usize - 0x1000)
+            }
         } else {
-            addr as usize
+            ((self.chr_bank_0.get() as usize & !1) * 0x2000) % chr_size + addr as usize
         }
     }
 }
 
-impl Cartridge for SNROM {
+impl Cartridge for SxROM {
     fn read_cpu(&self, addr: u16) -> u8 {
         match addr {
             0x0000..=0x5FFF => {
                 panic!("Bad cpu read to cartridge: {:04X}", addr)
             }
             0x6000..=0x7FFF => {
-                self.prg_ram()[(addr - 0x6000) as usize].get()
+                match &self.prg_ram {
+                    None => 0x0,
+                    Some(r) => r[(addr - 0x6000) as usize].get()
+                }
             }
             0x8000..=0xFFFF => {
                 let control_h = self.control.get() & 8 == 8;
@@ -124,7 +142,10 @@ impl Cartridge for SNROM {
                 panic!("Bad cpu write to cartridge: {:04X}", addr);
             }
             0x6000..=0x7FFF => {
-                self.prg_ram()[(addr - 0x6000) as usize].set(value);
+                match &self.prg_ram {
+                    None => () ,
+                    Some(r) => r[(addr - 0x6000) as usize].set(value)
+                }
             }
             0x8000..=0xFFFF => {
                 if value & 0x80 == 0x80 {
@@ -154,7 +175,10 @@ impl Cartridge for SNROM {
 
     fn read_ppu(&self, vram: &[Cell<u8>], addr: u16) -> u8 {
         match addr {
-            0x0000..=0x1FFF => self.chr_ram()[self.get_mapped_chr_addr(addr)].get(),
+            0x0000..=0x1FFF => match &self.chr {
+                ChrData::ROM(r) => r[self.get_mapped_chr_addr(addr)],
+                ChrData::RAM(r) => r[self.get_mapped_chr_addr(addr)].get(),
+            },
             0x1000..=0x3FFF => common::get_vram_cell(&self.get_mirroring(), vram, addr).get(),
             _ => panic!("Invalid ppu read address"),
         }
@@ -162,7 +186,10 @@ impl Cartridge for SNROM {
 
     fn write_ppu(&self, vram: &[Cell<u8>], addr: u16, value: u8) {
         match addr {
-            0x0000..=0x1FFF => self.chr_ram()[self.get_mapped_chr_addr(addr)].set(value),
+            0x0000..=0x1FFF => match &self.chr {
+                ChrData::ROM(_) => (),
+                ChrData::RAM(r) => r[self.get_mapped_chr_addr(addr)].set(value),
+            }
             0x1000..=0x3FFF => common::get_vram_cell(&self.get_mirroring(), vram, addr).set(value),
             _ => panic!("Invalid ppu write address"),
         }

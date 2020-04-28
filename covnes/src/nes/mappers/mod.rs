@@ -9,11 +9,13 @@ pub fn not_connected() -> Box<dyn Cartridge> {
 mod common;
 mod nrom;
 mod sxrom;
+mod uxrom;
 
 pub fn from_rom(rom: RomFile) -> Result<Box<dyn Cartridge>, Error> {
     Ok(match rom.mapper {
         0 => nrom::from_rom(rom)?,
         1 => sxrom::from_rom(rom)?,
+        2 => uxrom::from_rom(rom)?,
         i => bail!("Unsupported mapper: {}", rom.mapper),
     })
 }

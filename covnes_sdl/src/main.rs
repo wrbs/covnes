@@ -133,6 +133,8 @@ fn main() -> Result<(), Error> {
                 }
                 if let Some(b) = buttons.pop() {
                     nes.io.io.current_key_state.set(b);
+                } else {
+                    nes.io.io.current_key_state.set(StandardControllerButtons::empty());
                 }
             },
             None => {
@@ -230,8 +232,8 @@ fn parse_movie_file(filename: &Path) -> Result<(Vec<Command>, Vec<GamepadInput>)
     buttons.reverse();
 
     // We tend to be one frame ahead of FCEUX
-    commands.pop();
-    buttons.pop();
+//    commands.pop();
+//    buttons.pop();
 
     Ok((commands, buttons))
 }

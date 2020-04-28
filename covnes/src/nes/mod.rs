@@ -80,6 +80,7 @@ impl<I: IO> Nes<I> {
     pub fn tick(&self) {
         let next = match self.cycle.get() {
             Cycle::T1 => {
+                self.perform_cpu_cycle();
                 self.ppu.tick(self);
                 // println!("{:02X} ({}, {}) {:02X}: {:?}", self.cpu.pc.get(), self.ppu.dot.get(), self.ppu.scanline.get(), self.cpu.s.get(), self.cpu.state.get());
                 Cycle::T2
@@ -91,7 +92,6 @@ impl<I: IO> Nes<I> {
             }
             Cycle::T3 => {
                 self.ppu.tick(self);
-                self.perform_cpu_cycle();
                 Cycle::T1
             }
         };

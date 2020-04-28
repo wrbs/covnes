@@ -66,12 +66,12 @@ fn do_rom_instr_test_v5(name: &str) -> Result<(), Error> {
     do_rom(format!("instr_test-v5/rom_singles/{}", name).as_str())
 }
 
-// #[test]
+#[test]
 fn ppu_sprite_overflow() -> Result<(), Error> {
     do_rom("ppu_sprite_overflow")
 }
 
-// #[test]
+#[test]
 fn ppu_sprite_hit() -> Result<(), Error> {
     do_rom("ppu_sprite_hit")
 }
