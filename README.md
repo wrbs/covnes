@@ -67,7 +67,7 @@ the monitor used is 60Hz to run at about the right frame rate. Abstracting away 
 rate from the emulation frame-rate could help a lot but I haven't had any need to do it so haven't
 done it.
 
-## Implementaiton notes
+## Implementation notes
 
 I'm going to focus on the CPU here. If you are trying to read the code there please remember that I
 didn't go straight into writing this and debugging it in the format it is now - it was an iterative
@@ -87,7 +87,7 @@ Reads/Writes from memory. Some other emulators have the CPU control emulation an
 other devices like the PPU but I preferred the closer correspondence to the actual hardware of
 having the CPU be just another module.
 
-A Rust GADT-style enum stores the current CPU 'state' (not including registers). This allows for a
+A Rust enum (tagged union/ADT sum) stores the current CPU 'state' (not including registers). This allows for a
 nicer hybrid than the typical integer state approach you see in C/C++ state machines - we can for
 example store in the state the actual operation to execute once all of the address mode fetches
 have been done and so massively cut down on the number of states. We can also store past fetches
