@@ -1,13 +1,13 @@
 use covnes::nes::cpu;
-use covnes::romfiles::RomFile;
-use covnes::nes::Nes;
+use covnes::nes::cpu::CpuHostAccess;
 use covnes::nes::io::DummyIO;
 use covnes::nes::mappers;
+use covnes::nes::Nes;
+use covnes::romfiles::RomFile;
 use failure::Error;
 use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use covnes::nes::cpu::CpuHostAccess;
 
 // These test me against LaiNES. LaiNES is not perfect by any means but it provides an easy way to
 // troubleshoot obvious issues. I couldn't get the timing to align with mesen, it's too accurate for
@@ -74,7 +74,6 @@ fn log_cmp(game: &str) -> Result<(), Error> {
         }
 
         if buf.chars().next() == Some('D') {
-
         } else if buf.chars().next() == Some('P') {
             let cap = re_ppu.captures(&buf).unwrap();
 
@@ -117,7 +116,10 @@ fn log_cmp(game: &str) -> Result<(), Error> {
             }
 
             if expected_status != actual_status {
-                println!("Bad PPUSTATUS E:{:02X} A:{:02X}", expected_status, actual_status);
+                println!(
+                    "Bad PPUSTATUS E:{:02X} A:{:02X}",
+                    expected_status, actual_status
+                );
                 fail = true;
             }
 
@@ -157,10 +159,12 @@ fn log_cmp(game: &str) -> Result<(), Error> {
                     panic!("Bad ppu");
                 }
             }
-
         } else {
             if !nes.cpu.is_at_instruction() {
-                panic!("Cpu not at an instruction, it's at {:?}", nes.cpu.state.get())
+                panic!(
+                    "Cpu not at an instruction, it's at {:?}",
+                    nes.cpu.state.get()
+                )
             }
             let cap = re_cpu.captures(&buf).unwrap();
 
@@ -221,7 +225,6 @@ fn log_cmp(game: &str) -> Result<(), Error> {
                 print_buf(&linebuf, i);
                 panic!("Bad CPU");
             }
-
         }
 
         i += 1;

@@ -1,14 +1,14 @@
 // This runs nestest and tests the CPU in isolation
 use covnes::nes::cpu;
-use covnes::romfiles::RomFile;
-use covnes::nes::Nes;
+use covnes::nes::io::DummyIO;
 use covnes::nes::mappers;
+use covnes::nes::Nes;
+use covnes::romfiles::RomFile;
 use failure::Error;
 use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::pin::Pin;
-use covnes::nes::io::DummyIO;
 
 #[test]
 fn nestest() -> Result<(), Error> {

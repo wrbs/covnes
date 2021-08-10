@@ -1,12 +1,12 @@
 use covnes::nes::cpu;
 use covnes::nes::cpu::CpuHostAccess;
-use covnes::romfiles::RomFile;
-use covnes::nes::Nes;
+use covnes::nes::io::DummyIO;
 use covnes::nes::mappers;
+use covnes::nes::Nes;
+use covnes::romfiles::RomFile;
 use failure::Error;
 use regex::Regex;
 use std::fs::File;
-use covnes::nes::io::DummyIO;
 
 fn do_rom(name: &str) -> Result<(), Error> {
     // Load up the rom

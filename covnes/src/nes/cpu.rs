@@ -137,7 +137,7 @@ enum ReadOp {
     ANC,
     ALR,
     ARR,
-    AXS
+    AXS,
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -201,7 +201,7 @@ enum BranchOp {
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 enum SHOp {
     SHY,
-    SHX
+    SHX,
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -341,7 +341,7 @@ impl State {
         match self.0 {
             S::ExecuteOnAddress(op, _, _) => match op {
                 Op::Write(_) | Op::SH(_) => true,
-                _ => false
+                _ => false,
             },
             S::WriteBackThenWrite(_, _, _) => true,
             S::Write(_, _) => true,
@@ -351,7 +351,7 @@ impl State {
             S::PHPA(_) => true,
             S::JSR3(_) => true,
             S::JSR4(_) => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -1449,12 +1449,8 @@ impl ImpliedOp {
 impl SHOp {
     fn execute(&self, cpu: &CPU, h: u8) -> u8 {
         match self {
-            SHOp::SHY => {
-                cpu.y.get() & h
-            },
-            SHOp::SHX => {
-                cpu.x.get() & h
-            },
+            SHOp::SHY => cpu.y.get() & h,
+            SHOp::SHX => cpu.x.get() & h,
         }
     }
 }

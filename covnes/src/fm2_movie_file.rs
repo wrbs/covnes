@@ -1,6 +1,6 @@
-use std::io::{Read, BufReader, BufRead};
+use snafu::{ensure, ResultExt, Snafu};
 use std::collections::HashMap;
-use snafu::{Snafu, ensure, ResultExt};
+use std::io::{BufRead, BufReader, Read};
 
 #[derive(Debug, Clone)]
 pub struct FM2File {
@@ -20,20 +20,23 @@ pub struct FM2File {
     pub guid: String,
     pub rom_checksum: String,
     pub savestate: Option<String>,
-    pub commands: Vec<Command>
+    pub commands: Vec<Command>,
 }
 
 #[derive(Debug, Clone)]
 pub enum InputDevice {
     None,
     Gamepad(Vec<GamepadInput>),
-    Zapper(Vec<ZapperInput>)
+    Zapper(Vec<ZapperInput>),
 }
 
 #[derive(Debug, Clone)]
 pub enum ControllerConfiguration {
     Fourscore(Vec<[GamepadInput; 4]>),
-    Ports { port0: InputDevice, port1: InputDevice },
+    Ports {
+        port0: InputDevice,
+        port1: InputDevice,
+    },
 }
 
 bitflags! {
@@ -59,71 +62,42 @@ pub struct ZapperInput {
     z: u8,
 }
 
-
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("Could not read FM2 file: {}", source))]
-    CouldNotRead {
-        source: std::io::Error,
-    },
+    CouldNotRead { source: std::io::Error },
     #[snafu(display("No input lines were found"))]
     NoInput,
     #[snafu(display("Malformed header at line {}", line_no))]
-    MalformedHeaderLine {
-        line_no: i32,
-    },
+    MalformedHeaderLine { line_no: i32 },
     #[snafu(display("Duplicate key '{}' at line {}", key, line_no))]
-    DuplicateKey {
-        key: String,
-        line_no: i32,
-    },
+    DuplicateKey { key: String, line_no: i32 },
     #[snafu(display("Required key '{}' not found in the header", key))]
-    RequiredKeyNotFound {
-        key: &'static str,
-    },
+    RequiredKeyNotFound { key: &'static str },
     #[snafu(display("Key '{}' is not an integer, it's '{}'", key, value))]
-    NotAnInteger {
-        key: &'static str,
-        value: String,
-    },
+    NotAnInteger { key: &'static str, value: String },
     #[snafu(display("Key '{}' is not an bool (0/1), it's '{}'", key, value))]
-    NotABool {
-        key: &'static str,
-        value: i32,
-    },
+    NotABool { key: &'static str, value: i32 },
     #[snafu(display("Key '{}' is not a valid input device", key))]
-    BadInputDevice {
-        key: &'static str,
-    },
+    BadInputDevice { key: &'static str },
     #[snafu(display("Key '{}' is not a valid FCExp device", key))]
-    BadPort2 {
-        key: &'static str,
-    },
+    BadPort2 { key: &'static str },
     #[snafu(display("File stored using binary format which we don't support"))]
     NoBinaryPlease,
     #[snafu(display("Wrong number of sections or malformed data on line {}", line_no))]
-    BadInputLine {
-        line_no: i32
-    },
+    BadInputLine { line_no: i32 },
     #[snafu(display("Bad commands field on line {}", line_no))]
-    BadCommands {
-        line_no: i32
-    },
+    BadCommands { line_no: i32 },
     #[snafu(display("Bad gamepad input on line {} for section {}", line_no, section))]
-    BadGamepadInput {
-        line_no: i32,
-        section: &'static str,
-    },
+    BadGamepadInput { line_no: i32, section: &'static str },
     #[snafu(display("Bad zapper input on line {} for section {}", line_no, section))]
-    BadZapperInput {
-        line_no: i32,
-        section: &'static str,
-    },
-    #[snafu(display("Bad \"input\" for no connected controller on line {} for section {}", line_no, section))]
-    BadNoInputInput {
-        line_no: i32,
-        section: &'static str,
-    },
+    BadZapperInput { line_no: i32, section: &'static str },
+    #[snafu(display(
+        "Bad \"input\" for no connected controller on line {} for section {}",
+        line_no,
+        section
+    ))]
+    BadNoInputInput { line_no: i32, section: &'static str },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -155,14 +129,16 @@ impl FM2File {
                 break;
             }
 
-            let mut split : Vec<&str> = line.splitn(2, " ").collect();
+            let mut split: Vec<&str> = line.splitn(2, " ").collect();
             ensure!(split.len() == 2, MalformedHeaderLine { line_no });
             let k = String::from(split[0]);
             let v = String::from(split[1]);
 
-            ensure!(!header_map.contains_key(&k), DuplicateKey { key: k, line_no });
+            ensure!(
+                !header_map.contains_key(&k),
+                DuplicateKey { key: k, line_no }
+            );
             header_map.insert(k, v);
-
 
             line_no += 1;
         }
@@ -243,7 +219,7 @@ impl FM2File {
         let savestate = optional(&mut header_map, "savestate");
 
         if binary {
-            return Err(Error::NoBinaryPlease)
+            return Err(Error::NoBinaryPlease);
         }
 
         let mut commands = Vec::new();
@@ -273,9 +249,9 @@ impl FM2File {
                     if v >= 0 {
                         Command::from_bits_truncate((v % 255) as u8)
                     } else {
-                        return Err(Error::BadCommands { line_no })
+                        return Err(Error::BadCommands { line_no });
                     }
-                },
+                }
                 Err(_) => return Err(Error::BadCommands { line_no }),
             };
 
@@ -289,11 +265,11 @@ impl FM2File {
                     let p4 = parse_gamepad_input(parts[4], line_no, "player4")?;
 
                     values.push([p1, p2, p3, p4]);
-                },
+                }
                 ControllerConfiguration::Ports { port0, port1 } => {
                     parse_input_for_input_device(port0, parts[2], line_no, "port0")?;
                     parse_input_for_input_device(port1, parts[3], line_no, "port1")?;
-                },
+                }
             }
 
             line_no += 1;
@@ -335,8 +311,8 @@ impl FM2File {
             guid,
             rom_checksum,
             savestate,
-            commands
-        })
+            commands,
+        });
     }
 }
 
@@ -347,23 +323,28 @@ fn optional(map: &mut HashMap<String, String>, key: &'static str) -> Option<Stri
 fn required(map: &mut HashMap<String, String>, key: &'static str) -> Result<String> {
     match optional(map, key) {
         Some(x) => Ok(x),
-        None => Err(Error::RequiredKeyNotFound { key })
+        None => Err(Error::RequiredKeyNotFound { key }),
     }
 }
 
 fn required_int(map: &mut HashMap<String, String>, key: &'static str) -> Result<i32> {
     let v = required(map, key)?;
-    v.parse::<i32>().map_err(|_| Error::NotAnInteger { key, value: v.clone() })
+    v.parse::<i32>().map_err(|_| Error::NotAnInteger {
+        key,
+        value: v.clone(),
+    })
 }
 
 fn optional_int(map: &mut HashMap<String, String>, key: &'static str) -> Result<Option<i32>> {
     match optional(map, key) {
         None => Ok(None),
-        Some(v) => {
-            v.parse::<i32>()
-                .map(|x| Some(x))
-                .map_err(|_| Error::NotAnInteger { key, value: v.clone() })
-        },
+        Some(v) => v
+            .parse::<i32>()
+            .map(|x| Some(x))
+            .map_err(|_| Error::NotAnInteger {
+                key,
+                value: v.clone(),
+            }),
     }
 }
 
@@ -371,12 +352,10 @@ fn optional_bool_or_false(map: &mut HashMap<String, String>, key: &'static str) 
     let v = optional_int(map, key)?;
     Ok(match v {
         None => false,
-        Some(x) => {
-            match x {
-                0 => false,
-                1 => true,
-                _ => return Err(Error::NotABool { key, value: x }),
-            }
+        Some(x) => match x {
+            0 => false,
+            1 => true,
+            _ => return Err(Error::NotABool { key, value: x }),
         },
     })
 }
@@ -387,9 +366,8 @@ fn input_device(map: &mut HashMap<String, String>, key: &'static str) -> Result<
         0 => InputDevice::None,
         1 => InputDevice::Gamepad(Vec::new()),
         2 => InputDevice::Zapper(Vec::new()),
-        _ => return Err(Error::BadInputDevice { key })
+        _ => return Err(Error::BadInputDevice { key }),
     })
-
 }
 
 fn parse_gamepad_input(input: &str, line_no: i32, section: &'static str) -> Result<GamepadInput> {
@@ -415,17 +393,22 @@ fn parse_no_controller_input_input(input: &str, line_no: i32, section: &'static 
     Ok(())
 }
 
-fn parse_input_for_input_device(input_device: &mut InputDevice, input: &str, line_no: i32, section: &'static str) -> Result<()> {
+fn parse_input_for_input_device(
+    input_device: &mut InputDevice,
+    input: &str,
+    line_no: i32,
+    section: &'static str,
+) -> Result<()> {
     match input_device {
         InputDevice::None => {
             parse_no_controller_input_input(input, line_no, section)?;
-        },
+        }
         InputDevice::Gamepad(entries) => {
             entries.push(parse_gamepad_input(input, line_no, section)?);
-        },
+        }
         InputDevice::Zapper(entries) => {
             entries.push(parse_zapper_input(input, line_no, section)?);
-        },
+        }
     }
 
     Ok(())

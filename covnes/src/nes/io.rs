@@ -92,10 +92,12 @@ impl<I: SingleStandardControllerIO> IO for SingleStandardController<I> {
     fn controller_port_1_read(&self) -> ControllerPortDataLines {
         let bit = if self.currently_high.get() {
             // We return the current A value - no need to check for impossible combinations with A
-            self.io.poll_buttons().contains(StandardControllerButtons::A)
+            self.io
+                .poll_buttons()
+                .contains(StandardControllerButtons::A)
         } else {
             let latch = self.latch.get();
-            self.latch.set((latch >> 1) | 0x80);  // Official NES controllers return 1 after emptying latch
+            self.latch.set((latch >> 1) | 0x80); // Official NES controllers return 1 after emptying latch
             latch & 1 == 1
         };
 

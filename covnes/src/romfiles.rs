@@ -50,7 +50,6 @@ impl RomFile {
             bail!("What's a trainer?")
         }
 
-
         let mirroring = if header[6] & 0x8 == 0x8 {
             Mirroring::FourScreen
         } else {

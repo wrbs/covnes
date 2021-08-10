@@ -1,5 +1,5 @@
-use std::cell::Cell;
 use crate::nes::palette;
+use std::cell::Cell;
 
 // I got a *LOT* of help from reading https://github.com/AndreaOrru/LaiNES/blob/master/src/ppu.cpp
 // in addition to (of course) NesDEV
@@ -30,7 +30,6 @@ pub struct PPU {
     pub addr_t: Cell<u16>,
     pub fine_x: Cell<u8>,
     pub latch_w: Cell<bool>,
-
 
     // Latches
     pub fetch_addr: Cell<u16>,
@@ -86,7 +85,7 @@ impl Default for SpriteToRender {
             x: Cell::new(0),
             low_pattern: Cell::new(0),
             high_pattern: Cell::new(0),
-            attributes: Cell::new(SpriteAttributes::empty())
+            attributes: Cell::new(SpriteAttributes::empty()),
         }
     }
 }
@@ -135,7 +134,6 @@ bitflags! {
     }
 }
 
-
 impl PPU {
     pub fn new() -> PPU {
         PPU {
@@ -175,7 +173,7 @@ impl PPU {
             sprites: Default::default(),
             sprite_zero_next_scanline: Cell::new(false),
             sprite_zero_current_scanline: Cell::new(false),
-            num_sprites: Cell::new(0)
+            num_sprites: Cell::new(0),
         }
     }
 
@@ -245,7 +243,6 @@ impl PPU {
                     host.ppu_suppress_nmi();
                 }
 
-
                 let t = self.addr_t.get();
                 // t: ...BA.. ........ = d: ......BA
                 let new_t = (t & 0b1110011_11111111) | ((value as u16 & 0b11) << 10);
@@ -253,7 +250,7 @@ impl PPU {
             }
             1 => {
                 self.ppumask.set(PPUMASK::from_bits_truncate(value));
-            },
+            }
             3 => self.oamaddr.set(value),
             4 => {
                 if !(self.is_rendering() && self.is_rendering_scanline()) {
@@ -329,7 +326,6 @@ impl PPU {
 
                 self.latch_w.set(false);
                 self.last_read.set(n);
-
             }
             4 => {
                 let addr = self.oamaddr.get();
@@ -340,11 +336,7 @@ impl PPU {
                 // when reading from OAM. It has not been determined whether the PPU actually drives
                 // these bits low or whether this is the effect of data bus capacitance from reading
                 // the last byte of the instruction (LDA $2004, which assembles to AD 04 20)."
-                let v = if addr & 0b11 == 2 {
-                    v & 0xE3
-                } else {
-                    v
-                };
+                let v = if addr & 0b11 == 2 { v & 0xE3 } else { v };
                 self.last_read.set(v)
             }
             7 => {
@@ -388,7 +380,7 @@ impl PPU {
                 } else {
                     self.cgram()[Self::cgram_mirror_idx(idx)].get()
                 }
-            },
+            }
             _ => panic!("Bad PPU read address"),
         }
     }
@@ -412,7 +404,7 @@ impl PPU {
 
         match idx {
             0x10 | 0x14 | 0x18 | 0x1C => idx as usize - 0x10,
-            _ => idx as usize
+            _ => idx as usize,
         }
     }
 
@@ -442,10 +434,11 @@ impl PPU {
                     //
                     //   palette |= ((NTH_BIT(atShiftH,  7 - fX) << 1) |
                     //                NTH_BIT(atShiftL,  7 - fX))      << 2;
-                    pattern | (
-                        ((((self.at_shift_h.get() >> (7 - fx)) & 1) << 1)
-                            | ((self.at_shift_l.get() >> (7 - fx)) & 1 ))
-                        as u16) << 2
+                    pattern
+                        | (((((self.at_shift_h.get() >> (7 - fx)) & 1) << 1)
+                            | ((self.at_shift_l.get() >> (7 - fx)) & 1))
+                            as u16)
+                            << 2
                 }
             } else {
                 0
@@ -467,7 +460,8 @@ impl PPU {
                         }
                         let hs = self.sprites[i].high_pattern.get();
                         let ls = self.sprites[i].low_pattern.get();
-                        let sprite_palette = ((hs >> (7 - offset)) & 1) << 1 | ((ls >> (7 - offset)) & 1);
+                        let sprite_palette =
+                            ((hs >> (7 - offset)) & 1) << 1 | ((ls >> (7 - offset)) & 1);
 
                         if sprite_palette != 0 {
                             // Check for sprite zero hit
@@ -503,12 +497,13 @@ impl PPU {
 
         self.bg_low_shift.set(self.bg_low_shift.get() << 1);
         self.bg_high_shift.set(self.bg_high_shift.get() << 1);
-        self.at_shift_l.set((self.at_shift_l.get() << 1) | self.at_latch_l.get());
-        self.at_shift_h.set((self.at_shift_h.get() << 1) | self.at_latch_h.get());
+        self.at_shift_l
+            .set((self.at_shift_l.get() << 1) | self.at_latch_l.get());
+        self.at_shift_h
+            .set((self.at_shift_h.get() << 1) | self.at_latch_h.get());
     }
 
     pub fn tick<P: PPUHostAccess>(&self, host: &P) {
-
         // Sprite evaluation and loading - only on visible scanlines
         if self.is_rendering() && self.dot.get() == 257 {
             self.num_sprites.set(0)
@@ -533,21 +528,18 @@ impl PPU {
                             let y = self.secondary_oam()[base].get();
                             let tile_index = self.secondary_oam()[base + 1].get();
                             let attributes = SpriteAttributes::from_bits_truncate(
-                                self.secondary_oam()[base + 2].get()
+                                self.secondary_oam()[base + 2].get(),
                             );
                             let x = self.secondary_oam()[base + 3].get();
                             let addr = if self.get_sprite_size() == 16 {
-                                let bank = if tile_index & 1 == 1 {
-                                    0x1000
-                                } else {
-                                    0x0000
-                                };
+                                let bank = if tile_index & 1 == 1 { 0x1000 } else { 0x0000 };
 
                                 let tileno = (tile_index as u16 & !1) * 16;
 
                                 bank + tileno
                             } else {
-                                let base = if self.ppuctrl.get().contains(PPUCTRL::SPRITE_BANK_1000) {
+                                let base = if self.ppuctrl.get().contains(PPUCTRL::SPRITE_BANK_1000)
+                                {
                                     0x1000
                                 } else {
                                     0x0000
@@ -557,7 +549,8 @@ impl PPU {
                             };
 
                             if y < 240 {
-                                let mut y_offset = self.scanline.get().wrapping_sub(y as u16) % self.get_sprite_size() as u16;
+                                let mut y_offset = self.scanline.get().wrapping_sub(y as u16)
+                                    % self.get_sprite_size() as u16;
 
                                 if attributes.contains(SpriteAttributes::FLIP_VERT) {
                                     y_offset = self.get_sprite_size() as u16 - y_offset - 1;
@@ -574,12 +567,11 @@ impl PPU {
 
                                 self.num_sprites.set(sprite_no + 1);
                             }
-
-                        },
+                        }
                         5 => {
                             let mut s = self.read(host, self.fetch_addr.get());
                             self.sprites[sprite_no].low_pattern.set(s);
-                        },
+                        }
                         6 => self.fetch_addr.set(self.fetch_addr.get() + 8),
                         7 | _ => {
                             let mut s = self.read(host, self.fetch_addr.get());
@@ -588,9 +580,10 @@ impl PPU {
                     }
                 }
                 321 => {
-                    self.sprite_zero_current_scanline.set(self.sprite_zero_next_scanline.get());
-                },
-                _ => ()
+                    self.sprite_zero_current_scanline
+                        .set(self.sprite_zero_next_scanline.get());
+                }
+                _ => (),
             }
         }
 
@@ -599,86 +592,99 @@ impl PPU {
         match self.scanline.get() {
             // Pre render and visible
             0..=239 | 261 => {
-                if self.scanline.get() == 261 && self.dot.get() == 0{
+                if self.scanline.get() == 261 && self.dot.get() == 0 {
                     // Clear overflow
                     let mut s = self.ppustatus.get();
                     s.remove(PPUSTATUS::SPRITE_OVERFLOW);
                     self.ppustatus.set(s);
                 }
-                if self.scanline.get() == 261 && self.dot.get() == 1{
+                if self.scanline.get() == 261 && self.dot.get() == 1 {
                     // Clear vblank
                     let mut s = self.ppustatus.get();
                     s.remove(PPUSTATUS::VBLANK | PPUSTATUS::SPRITE_0_HIT);
                     self.ppustatus.set(s);
-
                 }
 
                 // Background processing
                 match self.dot.get() {
                     1 | 321 => self.fetch_addr.set(self.nt_addr()), // "NT byte 1" below without shift reloading
-                    2..= 255 | 321..=337 => {
+                    2..=255 | 321..=337 => {
                         self.pixel(host);
                         match self.dot.get() % 8 {
                             // NT byte 1
                             1 => {
                                 self.fetch_addr.set(self.nt_addr());
                                 self.reload_bg_shift();
-                            },
+                            }
                             // NT byte 2
-                            2 => self.fetched_nametable.set(self.read(host, self.fetch_addr.get())),
+                            2 => self
+                                .fetched_nametable
+                                .set(self.read(host, self.fetch_addr.get())),
                             // AT byte 1
                             3 => self.fetch_addr.set(self.at_addr()),
                             // AT byte 2
                             4 => {
-                                let mut at =self.read(host, self.fetch_addr.get());
+                                let mut at = self.read(host, self.fetch_addr.get());
                                 let v = self.addr_v.get();
-                                if v & 0x40 == 0x40 {  // bit 2 of coarse y
+                                if v & 0x40 == 0x40 {
+                                    // bit 2 of coarse y
                                     at >>= 4;
                                 }
-                                if v & 0x2 == 0x2 {  // bit 2 of coarse x
+                                if v & 0x2 == 0x2 {
+                                    // bit 2 of coarse x
                                     at >>= 2;
                                 }
                                 self.fetched_attribute_table.set(at);
-                            },
+                            }
                             // Low bg tile byte 1
                             5 => self.fetch_addr.set(self.bg_addr()),
                             // Low bg tile byte 2
-                            6 => self.fetched_bg_pattern_low.set(self.read(host, self.fetch_addr.get())),
+                            6 => self
+                                .fetched_bg_pattern_low
+                                .set(self.read(host, self.fetch_addr.get())),
                             // High bg tile byte 1
                             7 => self.fetch_addr.set(self.fetch_addr.get().wrapping_add(8)),
                             // High bg tile byte 2
                             0 | _ => {
-                                self.fetched_bg_pattern_high.set(self.read(host, self.fetch_addr.get()));
+                                self.fetched_bg_pattern_high
+                                    .set(self.read(host, self.fetch_addr.get()));
                                 self.h_scroll();
-                            },
+                            }
                         }
-                    },
+                    }
                     256 => {
                         self.pixel(host);
-                        self.fetched_bg_pattern_high.set(self.read(host, self.fetch_addr.get()));
+                        self.fetched_bg_pattern_high
+                            .set(self.read(host, self.fetch_addr.get()));
                         self.v_scroll();
-                    },
+                    }
                     257 => {
                         self.pixel(host);
                         self.reload_bg_shift();
                         self.h_update();
-                    },
+                    }
                     280..=304 if self.scanline.get() == 261 => self.v_update(),
-                    338 | 340 => { self.read(host, self.fetch_addr.get()); },
-                    _ => ()
+                    338 | 340 => {
+                        self.read(host, self.fetch_addr.get());
+                    }
+                    _ => (),
                 }
 
                 match self.dot.get() {
                     257..=320 => {
                         self.oamaddr.set(0);
-                    },
-                    _ =>()
+                    }
+                    _ => (),
                 }
 
-                if self.scanline.get() == 261 && self.dot.get() == 338  && self.is_rendering() && self.odd_frame.get() {
+                if self.scanline.get() == 261
+                    && self.dot.get() == 338
+                    && self.is_rendering()
+                    && self.odd_frame.get()
+                {
                     self.perform_skip.set(true)
                 }
-                if self.scanline.get() == 261 && self.dot.get() == 339  && self.perform_skip.get() {
+                if self.scanline.get() == 261 && self.dot.get() == 339 && self.perform_skip.get() {
                     self.dot.set(self.dot.get() + 1);
                     self.perform_skip.set(false)
                 }
@@ -733,8 +739,10 @@ impl PPU {
     }
 
     fn reload_bg_shift(&self) {
-        self.bg_low_shift.set((self.bg_low_shift.get() & 0xFF00) | self.fetched_bg_pattern_low.get() as u16);
-        self.bg_high_shift.set((self.bg_high_shift.get() & 0xFF00) | self.fetched_bg_pattern_high.get() as u16);
+        self.bg_low_shift
+            .set((self.bg_low_shift.get() & 0xFF00) | self.fetched_bg_pattern_low.get() as u16);
+        self.bg_high_shift
+            .set((self.bg_high_shift.get() & 0xFF00) | self.fetched_bg_pattern_high.get() as u16);
 
         let at = self.fetched_attribute_table.get();
         self.at_latch_l.set(at & 1);
@@ -761,11 +769,14 @@ impl PPU {
 
     // inc hori(v) / Course X increment
     fn h_scroll(&self) {
-        if !self.is_rendering() { return }
+        if !self.is_rendering() {
+            return;
+        }
         let mut v = self.addr_v.get();
-        if (v & 0x001F) == 31 {  // if course x == 31
-            v &= !0x001F;        // set course x to 0
-            v ^= 0x0400;         // flip horizontal nametable
+        if (v & 0x001F) == 31 {
+            // if course x == 31
+            v &= !0x001F; // set course x to 0
+            v ^= 0x0400; // flip horizontal nametable
         } else {
             v += 1;
         }
@@ -774,21 +785,27 @@ impl PPU {
 
     // inc vert(v)
     fn v_scroll(&self) {
-        if !self.is_rendering() { return }
+        if !self.is_rendering() {
+            return;
+        }
 
         let mut v = self.addr_v.get();
 
-        if (v & 0x7000) != 0x7000 {               // If fine y < 7
-            v += 0x1000;                          // Increment fine y
+        if (v & 0x7000) != 0x7000 {
+            // If fine y < 7
+            v += 0x1000; // Increment fine y
         } else {
-            v &= !0x7000;                         // set fine y to 0
-            let mut y = (v & 0x03E0) >> 5;  // let y = course y
+            v &= !0x7000; // set fine y to 0
+            let mut y = (v & 0x03E0) >> 5; // let y = course y
             match y {
-                29 => { y = 0; v ^= 0x0800 },     // set course y to 0, flip vert nametable
-                31 => y = 0,                      // set course y to 0
+                29 => {
+                    y = 0;
+                    v ^= 0x0800
+                } // set course y to 0, flip vert nametable
+                31 => y = 0, // set course y to 0
                 _ => y += 1,
             }
-            v = (v & !0x03E0) | (y << 5)          // put course y back in to v
+            v = (v & !0x03E0) | (y << 5) // put course y back in to v
         }
 
         self.addr_v.set(v);
@@ -796,7 +813,9 @@ impl PPU {
 
     // hori(v) = hori(t)
     fn h_update(&self) {
-        if !self.is_rendering() { return }
+        if !self.is_rendering() {
+            return;
+        }
 
         let v = self.addr_v.get();
         let t = self.addr_t.get();
@@ -805,7 +824,9 @@ impl PPU {
 
     // vert(v) = vert(t)
     fn v_update(&self) {
-        if !self.is_rendering() { return }
+        if !self.is_rendering() {
+            return;
+        }
 
         let v = self.addr_v.get();
         let t = self.addr_t.get();
@@ -818,7 +839,6 @@ impl PPU {
         // the OAM is internal to the PPU and we don't need to be cycle accurate with the
         // reads - so we aren't. Only do stuff on even dots
         if dot == 0 {
-
         } else if dot < 65 {
             self.secondary_oam()[((dot - 1) / 2) as usize].set(0xFF)
         } else if dot == 65 {
@@ -827,10 +847,12 @@ impl PPU {
             self.sprite_in_range.set(false);
             self.sprite_evaluation_done.set(false);
 
-            self.oam_value_latch.set(self.oam()[self.oamaddr.get() as usize].get());
+            self.oam_value_latch
+                .set(self.oam()[self.oamaddr.get() as usize].get());
         } else if dot <= 256 {
             if dot % 2 == 1 {
-                self.oam_value_latch.set(self.oam()[self.oamaddr.get() as usize].get());
+                self.oam_value_latch
+                    .set(self.oam()[self.oamaddr.get() as usize].get());
             } else {
                 let mut secondary_oam_addr = self.secondary_oam_addr.get();
                 let mut sprite_in_range = self.sprite_in_range.get();
@@ -845,8 +867,10 @@ impl PPU {
                             n += 1;
                         } else {
                             let scanline = self.scanline.get();
-                            if !sprite_in_range && scanline >= value as u16
-                                && scanline < value as u16 + self.get_sprite_size() as u16 {
+                            if !sprite_in_range
+                                && scanline >= value as u16
+                                && scanline < value as u16 + self.get_sprite_size() as u16
+                            {
                                 sprite_in_range = true;
                             }
 
@@ -875,7 +899,8 @@ impl PPU {
                                             self.sprite_evaluation_done.set(true);
                                         }
                                     }
-                                } else { // if sprite not in range
+                                } else {
+                                    // if sprite not in range
                                     // Go up a sprite
 
                                     n = (n + 1) % 64;
@@ -883,7 +908,8 @@ impl PPU {
                                         self.sprite_evaluation_done.set(true);
                                     }
                                 }
-                            } else { // if secondary oam full
+                            } else {
+                                // if secondary oam full
                                 if sprite_in_range {
                                     // 3a. If the value is in range, set the sprite overflow flag in
                                     // $2002 and read the next 3 entries of OAM (incrementing 'm' after
@@ -913,7 +939,7 @@ impl PPU {
                             }
                         }
                     }
-                    _ => ()
+                    _ => (),
                 }
 
                 self.sprite_in_range.set(sprite_in_range);
@@ -922,6 +948,4 @@ impl PPU {
             }
         }
     }
-
-
 }

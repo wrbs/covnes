@@ -6,10 +6,14 @@ pub enum MirrorMode {
     OneScreenLower,
     OneScreenHigher,
     Vertical,
-    Horizontal
+    Horizontal,
 }
 
-pub fn get_vram_cell<'a>(mirror_mode: &MirrorMode, vram: &'a [Cell<u8>], addr: u16) -> &'a Cell<u8> {
+pub fn get_vram_cell<'a>(
+    mirror_mode: &MirrorMode,
+    vram: &'a [Cell<u8>],
+    addr: u16,
+) -> &'a Cell<u8> {
     let addr = addr as usize;
     let offset = match addr {
         0x2000..=0x23FF => addr - 0x2000,

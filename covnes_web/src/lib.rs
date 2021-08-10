@@ -1,11 +1,13 @@
 mod utils;
 
-use wasm_bindgen::prelude::*;
-use covnes::nes::Nes;
-use covnes::nes::io::{StandardControllerButtons, SingleStandardControllerIO, SingleStandardController};
-use std::cell::Cell;
-use covnes::romfiles::RomFile;
+use covnes::nes::io::{
+    SingleStandardController, SingleStandardControllerIO, StandardControllerButtons,
+};
 use covnes::nes::mappers;
+use covnes::nes::Nes;
+use covnes::romfiles::RomFile;
+use std::cell::Cell;
+use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn init() {
@@ -32,13 +34,15 @@ pub struct EmulatorState {
 impl EmulatorState {
     pub fn new() -> EmulatorState {
         let io = SingleStandardController::new(WasmIO::new());
-        EmulatorState {
-            nes: Nes::new(io),
-        }
+        EmulatorState { nes: Nes::new(io) }
     }
 
     pub fn tick_cycle(&self, buttons: u8) -> usize {
-        self.nes.io.io.buttons.set(StandardControllerButtons::from_bits_truncate(buttons));
+        self.nes
+            .io
+            .io
+            .buttons
+            .set(StandardControllerButtons::from_bits_truncate(buttons));
         self.nes.step_frame()
     }
 
@@ -47,7 +51,7 @@ impl EmulatorState {
     }
 
     pub fn load_rom(&mut self, mut rom: &[u8]) -> Result<(), JsValue> {
-        let rom= RomFile::from_read(&mut rom).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let rom = RomFile::from_read(&mut rom).map_err(|e| JsValue::from_str(&e.to_string()))?;
         let cart = mappers::from_rom(rom).map_err(|e| JsValue::from_str(&e.to_string()))?;
         self.nes.insert_cartridge(cart);
         self.nes.reset();
@@ -66,7 +70,7 @@ impl WasmIO {
     fn new() -> WasmIO {
         WasmIO {
             video_mem: Cell::new([0; 240 * 256 * 3]),
-            buttons: Cell::new(StandardControllerButtons::empty())
+            buttons: Cell::new(StandardControllerButtons::empty()),
         }
     }
 }

@@ -1,21 +1,25 @@
+use covnes::fm2_movie_file::{
+    Command, ControllerConfiguration, FM2File, GamepadInput, InputDevice,
+};
+use covnes::nes::cpu::CpuHostAccess;
+use covnes::nes::io::{
+    SingleStandardController, SingleStandardControllerIO, StandardControllerButtons,
+};
+use covnes::nes::ppu::PPUHostAccess;
 use covnes::nes::Nes;
-use covnes::nes::io::{StandardControllerButtons, SingleStandardControllerIO, SingleStandardController};
 use covnes::nes::{mappers, palette};
-use failure::{err_msg, Error, bail};
+use covnes::romfiles::RomFile;
+use failure::{bail, err_msg, Error};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Scancode};
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
+use sdl2::Sdl;
+use std::cell::Cell;
+use std::fs::File;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
-use std::path::{PathBuf, Path};
-use std::cell::Cell;
-use sdl2::Sdl;
-use covnes::romfiles::RomFile;
-use covnes::nes::cpu::CpuHostAccess;
-use covnes::nes::ppu::PPUHostAccess;
-use covnes::fm2_movie_file::{FM2File, Command, InputDevice, GamepadInput, ControllerConfiguration};
-use std::fs::File;
 
 const KEYMAP: &[(Scancode, StandardControllerButtons)] = &[
     (Scancode::W, StandardControllerButtons::UP),
@@ -34,11 +38,11 @@ struct Opt {
     #[structopt(parse(from_os_str))]
     romfile: PathBuf,
 
-    #[structopt(short="m", long="movie_file", parse(from_os_str))]
+    #[structopt(short = "m", long = "movie_file", parse(from_os_str))]
     movie_file: Option<PathBuf>,
 
-    #[structopt(short="s", long="sync_frames")]
-    sync_frames: Option<i32>
+    #[structopt(short = "s", long = "sync_frames")]
+    sync_frames: Option<i32>,
 }
 
 fn main() -> Result<(), Error> {
@@ -67,12 +71,16 @@ fn main() -> Result<(), Error> {
         .position_centered()
         .build()?;
 
-    let mut canvas = window.into_canvas().present_vsync().build().map_err(err_msg)?;
+    let mut canvas = window
+        .into_canvas()
+        .present_vsync()
+        .build()
+        .map_err(err_msg)?;
 
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
     canvas.present();
-    
+
     let mut event_pump = sdl_context.event_pump().map_err(err_msg)?;
     let start = Instant::now();
     let mut offset = Duration::from_secs(0);
@@ -134,9 +142,12 @@ fn main() -> Result<(), Error> {
                 if let Some(b) = buttons.pop() {
                     nes.io.io.current_key_state.set(b);
                 } else {
-                    nes.io.io.current_key_state.set(StandardControllerButtons::empty());
+                    nes.io
+                        .io
+                        .current_key_state
+                        .set(StandardControllerButtons::empty());
                 }
-            },
+            }
             None => {
                 let mut buttons = StandardControllerButtons::empty();
                 let keys = event_pump.keyboard_state();
@@ -149,7 +160,6 @@ fn main() -> Result<(), Error> {
             }
         }
 
-
         let ps = Instant::now();
         nes.step_frame();
         time_stepping += ps.elapsed().as_secs_f32();
@@ -159,22 +169,36 @@ fn main() -> Result<(), Error> {
         fc += 1;
 
         if last_time.elapsed().as_secs_f32() > 1.0 {
-
             let ms_per_frame = 1000.0 / (fc - last_fc) as f32;
-            canvas.window_mut().set_title(format!("covnes: {:.2}ms/frame", ms_per_frame).as_str());
+            canvas
+                .window_mut()
+                .set_title(format!("covnes: {:.2}ms/frame", ms_per_frame).as_str());
             last_fc = fc;
             last_time += Duration::from_secs(1);
         }
-
     }
 
     let elapsed = start.elapsed();
-    println!("{} frames in {:?} = {} ms/frame, {} average fps", fc, elapsed, 1000.0 * elapsed.as_secs_f32() / fc as f32, fc as f32 / elapsed.as_secs_f32());
+    println!(
+        "{} frames in {:?} = {} ms/frame, {} average fps",
+        fc,
+        elapsed,
+        1000.0 * elapsed.as_secs_f32() / fc as f32,
+        fc as f32 / elapsed.as_secs_f32()
+    );
 
     let step_per_frame = time_stepping / fc as f32;
-    println!("Spent {}ms stepping each frame: {}%", step_per_frame * 1000.0, time_stepping / elapsed.as_secs_f32());
+    println!(
+        "Spent {}ms stepping each frame: {}%",
+        step_per_frame * 1000.0,
+        time_stepping / elapsed.as_secs_f32()
+    );
     let render_per_frame = time_rendering / fc as f32;
-    println!("Spent {}ms rendering each frame: {}%", render_per_frame * 1000.0, time_rendering / elapsed.as_secs_f32());
+    println!(
+        "Spent {}ms rendering each frame: {}%",
+        render_per_frame * 1000.0,
+        time_rendering / elapsed.as_secs_f32()
+    );
     Ok(())
 }
 
@@ -187,7 +211,7 @@ impl SdlIO {
     fn new() -> SdlIO {
         SdlIO {
             pixels: Cell::new([(0, 0, 0); 256 * 240]),
-            current_key_state: Cell::new(StandardControllerButtons::empty())
+            current_key_state: Cell::new(StandardControllerButtons::empty()),
         }
     }
 
@@ -220,20 +244,18 @@ fn parse_movie_file(filename: &Path) -> Result<(Vec<Command>, Vec<GamepadInput>)
     let mut commands = fm2.commands;
     let mut buttons = match fm2.controllers {
         ControllerConfiguration::Fourscore(_) => bail!("No fourescore please"),
-        ControllerConfiguration::Ports { port0, .. } => {
-            match port0 {
-                InputDevice::None => bail!("At least give me a controller!"),
-                InputDevice::Gamepad(b) => b,
-                InputDevice::Zapper(_) => bail!("I don't get zapper"),
-            }
+        ControllerConfiguration::Ports { port0, .. } => match port0 {
+            InputDevice::None => bail!("At least give me a controller!"),
+            InputDevice::Gamepad(b) => b,
+            InputDevice::Zapper(_) => bail!("I don't get zapper"),
         },
     };
     commands.reverse();
     buttons.reverse();
 
     // We tend to be one frame ahead of FCEUX
-//    commands.pop();
-//    buttons.pop();
+    //    commands.pop();
+    //    buttons.pop();
 
     Ok((commands, buttons))
 }
