@@ -1,16 +1,17 @@
-pub mod io;
 pub mod cpu;
-pub mod mappers;
-pub mod ppu;
-pub mod palette;
 pub mod dma;
+pub mod io;
+pub mod mappers;
+pub mod palette;
+pub mod ppu;
 
 use cpu::{CpuHostAccess, CPU};
-use mappers::Cartridge;
+use dma::DMA;
+use io::IO;
 use ppu::{PPUHostAccess, PPU};
 use std::cell::Cell;
-use io::IO;
-use dma::DMA;
+
+use self::mappers::Cartridge;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Cycle {
@@ -24,7 +25,7 @@ pub struct Nes<I: IO> {
     pub cpu: CPU,
     pub ppu: PPU,
     pub dma: DMA,
-    pub cartridge: Box<dyn Cartridge>,
+    pub cartridge: Cartridge,
     pub cpu_ram: Cell<[u8; 2048]>,
     pub cycle: Cell<Cycle>,
     pub vram: Cell<[u8; 2048]>,
@@ -33,7 +34,7 @@ pub struct Nes<I: IO> {
 
 impl<I: IO> Nes<I> {
     pub fn new(io: I) -> Nes<I> {
-        let cartridge = mappers::not_connected();
+        let cartridge = Cartridge::NotConnected;
         let cpu = CPU::new();
         let ppu = PPU::new();
         let dma = DMA::new();
@@ -49,7 +50,7 @@ impl<I: IO> Nes<I> {
             cpu,
             vram,
             cycle: Cell::new(Cycle::T1),
-            controller_latch: Cell::new(false)
+            controller_latch: Cell::new(false),
         }
     }
 
@@ -59,12 +60,12 @@ impl<I: IO> Nes<I> {
         self.dma.reset();
     }
 
-    pub fn insert_cartridge(&mut self, cartridge: Box<dyn Cartridge>) {
+    pub fn insert_cartridge(&mut self, cartridge: Cartridge) {
         self.cartridge = cartridge;
     }
 
     pub fn remove_cartridge(&mut self) {
-        self.cartridge = mappers::not_connected();
+        self.cartridge = Cartridge::NotConnected;
     }
 
     fn ram(&self) -> &[Cell<u8>] {
@@ -156,9 +157,7 @@ impl<I: IO> CpuHostAccess for Nes<I> {
                 // TODO open bus if I ever implement that
                 self.io.controller_port_1_read().bits()
             }
-            0x4017 => {
-                self.io.controller_port_2_read().bits()
-            }
+            0x4017 => self.io.controller_port_2_read().bits(),
             0x4000..=0x4017 => {
                 // println!("APU Read: 0x{:04x}", addr);
                 0
@@ -224,5 +223,3 @@ impl<I: IO> PPUHostAccess for Nes<I> {
         self.io.set_pixel(row, col, r, g, b);
     }
 }
-
-

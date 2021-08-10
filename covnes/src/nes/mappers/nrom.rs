@@ -1,10 +1,10 @@
-use crate::romfiles::{Mirroring, RomFile};
-use failure::{Error, bail};
-use std::cell::Cell;
-use crate::nes::mappers::{Cartridge, common};
 use crate::nes::mappers::common::MirrorMode;
+use crate::nes::mappers::{common, CartridgeImpl};
+use crate::romfiles::{Mirroring, RomFile};
+use failure::{bail, Error};
+use std::cell::Cell;
 
-pub fn from_rom(rom: RomFile) -> Result<Box<dyn Cartridge>, Error> {
+pub fn from_rom(rom: RomFile) -> Result<NROM, Error> {
     let mirror_prg_rom = rom.prg_rom.len() == 16384;
 
     if !(rom.prg_rom.len() == 16384 || rom.prg_rom.len() == 16384 * 2) {
@@ -24,8 +24,8 @@ pub fn from_rom(rom: RomFile) -> Result<Box<dyn Cartridge>, Error> {
             } else {
                 Chr::ROM(d)
             }
-        },
-        None => Chr::RAM(vec![Cell::new(0); 8192])
+        }
+        None => Chr::RAM(vec![Cell::new(0); 8192]),
     };
 
     let mirroring = match rom.mirroring {
@@ -34,13 +34,13 @@ pub fn from_rom(rom: RomFile) -> Result<Box<dyn Cartridge>, Error> {
         Mirroring::FourScreen => panic!("Can't do FourScreen on mapper 0/NROM"),
     };
 
-    Ok(Box::new(NROM {
+    Ok(NROM {
         mirroring: mirroring,
         prg_rom: rom.prg_rom,
         chr_data,
         prg_ram,
         mirror_prg_rom,
-    }))
+    })
 }
 
 enum Chr {
@@ -48,7 +48,7 @@ enum Chr {
     RAM(Vec<Cell<u8>>),
 }
 
-struct NROM {
+pub struct NROM {
     mirroring: common::MirrorMode,
     prg_rom: Vec<u8>,
     chr_data: Chr,
@@ -57,7 +57,7 @@ struct NROM {
     // We store the PPU VRAM here in the mapper to allow for cartridges to choose
 }
 
-impl Cartridge for NROM {
+impl CartridgeImpl for NROM {
     fn read_cpu(&self, addr: u16) -> u8 {
         if self.mirror_prg_rom {
             match addr {
@@ -73,7 +73,13 @@ impl Cartridge for NROM {
                 }
                 0x8000..=0xBFFF => self.prg_rom[(addr - 0x8000) as usize],
                 0xC000..=0xFFFF => self.prg_rom[(addr - 0xC000) as usize],
-                _ => if cfg!(pedantic_af) { panic!("Bad read") } else { 0 },
+                _ => {
+                    if cfg!(pedantic_af) {
+                        panic!("Bad read")
+                    } else {
+                        0
+                    }
+                }
             }
         } else {
             match addr {
@@ -88,7 +94,13 @@ impl Cartridge for NROM {
                     }
                 }
                 0x8000..=0xFFFF => self.prg_rom[(addr - 0x8000) as usize],
-                _ => if cfg!(pedantic_af) { panic!("Bad read {:4X}", addr) } else { 0 },
+                _ => {
+                    if cfg!(pedantic_af) {
+                        panic!("Bad read {:4X}", addr)
+                    } else {
+                        0
+                    }
+                }
             }
         }
     }
@@ -104,9 +116,11 @@ impl Cartridge for NROM {
                     }
                 }
             }
-            _ => if cfg!(pedantic_af) {
-                panic!("Attempt to write to PRGROM {:04X}", addr)
-            },
+            _ => {
+                if cfg!(pedantic_af) {
+                    panic!("Attempt to write to PRGROM {:04X}", addr)
+                }
+            }
         }
     }
 
@@ -124,9 +138,13 @@ impl Cartridge for NROM {
     fn write_ppu(&self, vram: &[Cell<u8>], addr: u16, value: u8) {
         match addr % 0x4000 {
             0x0000..=0x1FFF => match &self.chr_data {
-                Chr::ROM(_) => if cfg!(pedantic_af) { panic!("Attempt to write to CHRROM") },
+                Chr::ROM(_) => {
+                    if cfg!(pedantic_af) {
+                        panic!("Attempt to write to CHRROM")
+                    }
+                }
                 Chr::RAM(r) => r[addr as usize].set(value),
-            }
+            },
             0x1000..=0x3FFF => common::get_vram_cell(&self.mirroring, vram, addr).set(value),
             _ => panic!("Invalid ppu write address"),
         }

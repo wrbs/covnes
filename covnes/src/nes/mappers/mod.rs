@@ -2,25 +2,28 @@ use crate::romfiles::RomFile;
 use failure::{bail, Error};
 use std::cell::Cell;
 
-pub fn not_connected() -> Box<dyn Cartridge> {
-    Box::new(NotConnected)
-}
-
 mod common;
 mod nrom;
 mod sxrom;
 mod uxrom;
 
-pub fn from_rom(rom: RomFile) -> Result<Box<dyn Cartridge>, Error> {
+pub enum Cartridge {
+    NotConnected,
+    NROM(nrom::NROM),
+    SxROM(sxrom::SxROM),
+    UxROM(uxrom::UxROM),
+}
+
+pub fn from_rom(rom: RomFile) -> Result<Cartridge, Error> {
     Ok(match rom.mapper {
-        0 => nrom::from_rom(rom)?,
-        1 => sxrom::from_rom(rom)?,
-        2 => uxrom::from_rom(rom)?,
+        0 => Cartridge::NROM(nrom::from_rom(rom)?),
+        1 => Cartridge::SxROM(sxrom::from_rom(rom)?),
+        2 => Cartridge::UxROM(uxrom::from_rom(rom)?),
         i => bail!("Unsupported mapper: {}", rom.mapper),
     })
 }
 
-pub trait Cartridge {
+pub trait CartridgeImpl {
     fn read_cpu(&self, addr: u16) -> u8;
     fn write_cpu(&self, addr: u16, value: u8);
 
@@ -28,22 +31,40 @@ pub trait Cartridge {
     fn write_ppu(&self, vram: &[Cell<u8>], addr: u16, value: u8);
 }
 
-struct NotConnected;
-impl Cartridge for NotConnected {
-    fn read_cpu(&self, addr: u16) -> u8 {
-        unimplemented!()
+impl Cartridge {
+    pub fn read_cpu(&self, addr: u16) -> u8 {
+        match self {
+            Cartridge::NotConnected => unimplemented!(),
+            Cartridge::NROM(c) => c.read_cpu(addr),
+            Cartridge::SxROM(c) => c.read_cpu(addr),
+            Cartridge::UxROM(c) => c.read_cpu(addr),
+        }
     }
 
-    fn write_cpu(&self, addr: u16, value: u8) {
-        unimplemented!()
+    pub fn write_cpu(&self, addr: u16, value: u8) {
+        match self {
+            Cartridge::NotConnected => unimplemented!(),
+            Cartridge::NROM(c) => c.write_cpu(addr, value),
+            Cartridge::SxROM(c) => c.write_cpu(addr, value),
+            Cartridge::UxROM(c) => c.write_cpu(addr, value),
+        }
     }
 
-    fn read_ppu(&self, vram: &[Cell<u8>], addr: u16) -> u8 {
-        unimplemented!()
+    pub fn read_ppu(&self, vram: &[Cell<u8>], addr: u16) -> u8 {
+        match self {
+            Cartridge::NotConnected => unimplemented!(),
+            Cartridge::NROM(c) => c.read_ppu(vram, addr),
+            Cartridge::SxROM(c) => c.read_ppu(vram, addr),
+            Cartridge::UxROM(c) => c.read_ppu(vram, addr),
+        }
     }
 
-    fn write_ppu(&self, vram: &[Cell<u8>], addr: u16, value: u8) {
-        unimplemented!()
+    pub fn write_ppu(&self, vram: &[Cell<u8>], addr: u16, value: u8) {
+        match self {
+            Cartridge::NotConnected => unimplemented!(),
+            Cartridge::NROM(c) => c.write_ppu(vram, addr, value),
+            Cartridge::SxROM(c) => c.write_ppu(vram, addr, value),
+            Cartridge::UxROM(c) => c.write_ppu(vram, addr, value),
+        }
     }
 }
-
