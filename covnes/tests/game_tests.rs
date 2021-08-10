@@ -1,4 +1,3 @@
-use covnes::nes::cpu;
 use covnes::nes::cpu::CpuHostAccess;
 use covnes::nes::io::DummyIO;
 use covnes::nes::mappers;
@@ -36,7 +35,7 @@ fn ice_log_cmp() -> Result<(), Error> {
 fn log_cmp(game: &str) -> Result<(), Error> {
     // Load up the rom
     let mut f = File::open(format!("../roms/games/{}.nes", game))?;
-    let mut log = File::open(format!("../roms/games/{}.log", game))?;
+    let log = File::open(format!("../roms/games/{}.log", game))?;
     let mut log = BufReader::new(log);
 
     let rom = RomFile::from_read(&mut f)?;

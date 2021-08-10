@@ -19,7 +19,7 @@ pub fn from_rom(rom: RomFile) -> Result<Cartridge, Error> {
         0 => Cartridge::NROM(nrom::from_rom(rom)?),
         1 => Cartridge::SxROM(sxrom::from_rom(rom)?),
         2 => Cartridge::UxROM(uxrom::from_rom(rom)?),
-        i => bail!("Unsupported mapper: {}", rom.mapper),
+        i => bail!("Unsupported mapper: {}", i),
     })
 }
 

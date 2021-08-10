@@ -1,20 +1,17 @@
 use covnes::fm2_movie_file::{
     Command, ControllerConfiguration, FM2File, GamepadInput, InputDevice,
 };
-use covnes::nes::cpu::CpuHostAccess;
 use covnes::nes::io::{
     SingleStandardController, SingleStandardControllerIO, StandardControllerButtons,
 };
-use covnes::nes::ppu::PPUHostAccess;
+use covnes::nes::mappers;
 use covnes::nes::Nes;
-use covnes::nes::{mappers, palette};
 use covnes::romfiles::RomFile;
 use failure::{bail, err_msg, Error};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Scancode};
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
-use sdl2::Sdl;
 use std::cell::Cell;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -83,7 +80,6 @@ fn main() -> Result<(), Error> {
 
     let mut event_pump = sdl_context.event_pump().map_err(err_msg)?;
     let start = Instant::now();
-    let mut offset = Duration::from_secs(0);
     let mut time_stepping = 0.0;
     let mut time_rendering = 0.0;
     let mut fc = 0;
@@ -172,7 +168,7 @@ fn main() -> Result<(), Error> {
             let ms_per_frame = 1000.0 / (fc - last_fc) as f32;
             canvas
                 .window_mut()
-                .set_title(format!("covnes: {:.2}ms/frame", ms_per_frame).as_str());
+                .set_title(format!("covnes: {:.2}ms/frame", ms_per_frame).as_str())?;
             last_fc = fc;
             last_time += Duration::from_secs(1);
         }
@@ -237,7 +233,7 @@ impl SingleStandardControllerIO for SdlIO {
 
 fn parse_movie_file(filename: &Path) -> Result<(Vec<Command>, Vec<GamepadInput>), Error> {
     let mut f = File::open(filename)?;
-    let mut fm2 = FM2File::parse(&mut f)?;
+    let fm2 = FM2File::parse(&mut f)?;
     if fm2.pal_flag || fm2.fds {
         bail!("Unsupported movie (pal or fds)");
     }

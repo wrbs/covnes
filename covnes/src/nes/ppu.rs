@@ -569,12 +569,12 @@ impl PPU {
                             }
                         }
                         5 => {
-                            let mut s = self.read(host, self.fetch_addr.get());
+                            let s = self.read(host, self.fetch_addr.get());
                             self.sprites[sprite_no].low_pattern.set(s);
                         }
                         6 => self.fetch_addr.set(self.fetch_addr.get() + 8),
                         7 | _ => {
-                            let mut s = self.read(host, self.fetch_addr.get());
+                            let s = self.read(host, self.fetch_addr.get());
                             self.sprites[sprite_no].high_pattern.set(s);
                         }
                     }

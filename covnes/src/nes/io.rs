@@ -75,17 +75,8 @@ impl<I: SingleStandardControllerIO> IO for SingleStandardController<I> {
         self.currently_high.set(value);
         if !value {
             // High-low transition ==> Latch current buttons
-            let mut buttons = self.io.poll_buttons();
 
-            // Remove impossible combinations
-            // if buttons.contains(StandardControllerButtons::UP | StandardControllerButtons::DOWN) {
-            //     buttons.remove(StandardControllerButtons::DOWN);
-            // }
-            // if buttons.contains(StandardControllerButtons::LEFT | StandardControllerButtons::RIGHT) {
-            //     buttons.remove(StandardControllerButtons::RIGHT);
-            // }
-
-            self.latch.set(buttons.bits());
+            self.latch.set(self.io.poll_buttons().bits());
         }
     }
 

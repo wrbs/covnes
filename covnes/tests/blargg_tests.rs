@@ -1,11 +1,9 @@
-use covnes::nes::cpu;
 use covnes::nes::cpu::CpuHostAccess;
 use covnes::nes::io::DummyIO;
 use covnes::nes::mappers;
 use covnes::nes::Nes;
 use covnes::romfiles::RomFile;
 use failure::Error;
-use regex::Regex;
 use std::fs::File;
 
 fn do_rom(name: &str) -> Result<(), Error> {
@@ -87,9 +85,9 @@ fn instr_test_v5() -> Result<(), Error> {
 }
 
 // #[test]
-fn oam_read() -> Result<(), Error> {
-    do_rom("oam_read")
-}
+// fn oam_read() -> Result<(), Error> {
+//     do_rom("oam_read")
+// }
 
 #[test]
 fn m_abs_x_wrap() -> Result<(), Error> {

@@ -1,5 +1,4 @@
 // This runs nestest and tests the CPU in isolation
-use covnes::nes::cpu;
 use covnes::nes::io::DummyIO;
 use covnes::nes::mappers;
 use covnes::nes::Nes;
@@ -8,13 +7,12 @@ use failure::Error;
 use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::pin::Pin;
 
 #[test]
 fn nestest() -> Result<(), Error> {
     // Load up the rom
     let mut f = File::open("../roms/test/nestest.nes")?;
-    let mut log = File::open("../roms/test/nestest.log")?;
+    let log = File::open("../roms/test/nestest.log")?;
     let mut log = BufReader::new(log);
 
     let rom = RomFile::from_read(&mut f)?;

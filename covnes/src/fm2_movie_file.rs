@@ -50,7 +50,6 @@ bitflags! {
 }
 
 use crate::nes::io::StandardControllerButtons;
-use bitflags::_core::num::ParseIntError;
 
 pub type GamepadInput = StandardControllerButtons;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -129,7 +128,7 @@ impl FM2File {
                 break;
             }
 
-            let mut split: Vec<&str> = line.splitn(2, " ").collect();
+            let split: Vec<&str> = line.splitn(2, " ").collect();
             ensure!(split.len() == 2, MalformedHeaderLine { line_no });
             let k = String::from(split[0]);
             let v = String::from(split[1]);
@@ -384,7 +383,7 @@ fn parse_gamepad_input(input: &str, line_no: i32, section: &'static str) -> Resu
     Ok(GamepadInput::from_bits_truncate(v))
 }
 
-fn parse_zapper_input(input: &str, line_no: i32, section: &'static str) -> Result<ZapperInput> {
+fn parse_zapper_input(_input: &str, _line_no: i32, _section: &'static str) -> Result<ZapperInput> {
     unimplemented!();
 }
 
