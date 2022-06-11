@@ -1,10 +1,10 @@
 use crate::nes::mappers::common::MirrorMode;
 use crate::nes::mappers::{common, CartridgeImpl};
 use crate::romfiles::{Mirroring, RomFile};
-use failure::{bail, Error};
+use anyhow::{bail, Result};
 use std::cell::Cell;
 
-pub fn from_rom(rom: RomFile) -> Result<UxROM, Error> {
+pub fn from_rom(rom: RomFile) -> Result<UxROM> {
     let banks = rom.prg_rom.len() / 16384;
     if !(banks == 1
         || banks == 2

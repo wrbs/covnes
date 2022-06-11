@@ -1,22 +1,27 @@
+mod emulator;
+mod timer;
+use anyhow::{anyhow, bail, Result};
+
 use covnes::fm2_movie_file::{
     Command, ControllerConfiguration, FM2File, GamepadInput, InputDevice,
 };
-use covnes::nes::io::{
-    SingleStandardController, SingleStandardControllerIO, StandardControllerButtons,
-};
+use covnes::nes::io::StandardControllerButtons;
 use covnes::nes::mappers;
-use covnes::nes::Nes;
 use covnes::romfiles::RomFile;
-use failure::{bail, err_msg, Error};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Scancode};
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
-use std::cell::Cell;
+use sdl2::render::Canvas;
+use sdl2::video::Window;
+use sdl2::EventPump;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use structopt::StructOpt;
+use timer::{TickResult, Timer};
+
+use crate::emulator::Emulator;
 
 const KEYMAP: &[(Scancode, StandardControllerButtons)] = &[
     (Scancode::W, StandardControllerButtons::UP),
@@ -29,6 +34,9 @@ const KEYMAP: &[(Scancode, StandardControllerButtons)] = &[
     (Scancode::I, StandardControllerButtons::START),
 ];
 
+pub const TARGET_FRAMERATE: f32 = 1789772.7272727 / 29780.5;
+pub const SCALE: u32 = 3;
+
 #[derive(Debug, StructOpt)]
 struct Opt {
     /// ROM file to load in iNES format
@@ -37,14 +45,31 @@ struct Opt {
 
     #[structopt(short = "m", long = "movie_file", parse(from_os_str))]
     movie_file: Option<PathBuf>,
-
-    #[structopt(short = "s", long = "sync_frames")]
-    sync_frames: Option<i32>,
 }
 
-fn main() -> Result<(), Error> {
+struct Ui {
+    emulator: Emulator,
+    movie: Option<(Vec<Command>, Vec<StandardControllerButtons>)>,
+    canvas: Canvas<Window>,
+    event_pump: EventPump,
+    timer: Timer,
+    time_rendering: f32,
+    time_waiting_for_next_frame: f32,
+}
+
+fn sdl_error(error: String) -> anyhow::Error {
+    anyhow!("SDL error: {}", error)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BreakOrContinue {
+    Break,
+    Continue,
+}
+
+fn main() -> Result<()> {
     let opt: Opt = Opt::from_args();
-    let mut movie = if let Some(m) = opt.movie_file {
+    let movie = if let Some(m) = opt.movie_file {
         Some(parse_movie_file(&m)?)
     } else {
         None
@@ -52,75 +77,99 @@ fn main() -> Result<(), Error> {
 
     let scale = 3;
     let rom = RomFile::from_filename(opt.romfile)?;
-    let io = SdlIO::new();
-    let mut nes = Nes::new(SingleStandardController::new(io));
     let cart = mappers::from_rom(rom)?;
 
-    nes.insert_cartridge(cart);
-    // nes.step_frame();
-    // nes.step_frame();
+    let emulator = Emulator::new(cart);
 
-    let sdl_context = sdl2::init().map_err(err_msg)?;
-    let video_subsystem = sdl_context.video().map_err(err_msg)?;
+    let sdl_context = sdl2::init().map_err(sdl_error)?;
+    let video_subsystem = sdl_context.video().map_err(sdl_error)?;
 
     let window = video_subsystem
         .window("covnes", 256 * scale, 240 * scale)
         .position_centered()
         .build()?;
 
-    let mut canvas = window
-        .into_canvas()
-        .present_vsync()
-        .build()
-        .map_err(err_msg)?;
+    let mut canvas = window.into_canvas().present_vsync().build()?;
 
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
     canvas.present();
 
-    let mut event_pump = sdl_context.event_pump().map_err(err_msg)?;
-    let start = Instant::now();
-    let mut time_stepping = 0.0;
-    let mut time_rendering = 0.0;
-    let mut fc = 0;
-    let mut last_fc = 0;
-    let mut last_time = Instant::now();
-    'running: loop {
-        let ps = Instant::now();
-        canvas.set_draw_color(Color::RGB(0, 0, 0));
-        canvas.clear();
-        for row in 0..240 {
-            for col in 0..256 {
-                let (r, g, b) = nes.io.io.get_pixel(row, col);
-                canvas.set_draw_color(Color::RGB(r, g, b));
-                canvas
-                    .fill_rect(Rect::new(
-                        col as i32 * scale as i32,
-                        row as i32 * scale as i32,
-                        scale,
-                        scale,
-                    ))
-                    .map_err(err_msg)?;
+    let event_pump = sdl_context.event_pump().map_err(sdl_error)?;
+
+    let mut ui = Ui {
+        emulator,
+        movie,
+        canvas,
+        event_pump,
+        timer: Timer::new(TARGET_FRAMERATE),
+        time_rendering: 0.0,
+        time_waiting_for_next_frame: 0.0,
+    };
+
+    ui.run()
+}
+
+impl Ui {
+    fn run(&mut self) -> Result<()> {
+        'outer: loop {
+            let TickResult {
+                frames_to_step,
+                frame_rate_display_update,
+            } = self.timer.tick();
+
+            for _ in 0..frames_to_step {
+                match self.process_input() {
+                    BreakOrContinue::Break => break 'outer,
+                    BreakOrContinue::Continue => (),
+                }
+                self.emulator.step_frame();
+            }
+
+            let ps = Instant::now();
+            self.draw_frame();
+            self.time_waiting_for_next_frame += ps.elapsed().as_secs_f32();
+
+            if let Some(update) = frame_rate_display_update {
+                self.canvas
+                    .window_mut()
+                    .set_title(&format!("covnes: {}", update))?;
             }
         }
-        time_rendering += ps.elapsed().as_secs_f32();
 
-        for event in event_pump.poll_iter() {
+        self.show_counts();
+        Ok(())
+    }
+
+    fn draw_frame(&mut self) {
+        let ps = Instant::now();
+        self.canvas.set_draw_color(Color::RGB(0, 0, 0));
+        self.canvas.clear();
+        let canvas = &mut self.canvas;
+        self.emulator.iter_pixels(|row, col, (r, g, b)| {
+            canvas.set_draw_color(Color::RGB(r, g, b));
+            canvas
+                .fill_rect(Rect::new(
+                    col as i32 * SCALE as i32,
+                    row as i32 * SCALE as i32,
+                    SCALE,
+                    SCALE,
+                ))
+                .unwrap()
+        });
+
+        self.time_rendering += ps.elapsed().as_secs_f32();
+        self.canvas.present();
+    }
+
+    fn process_input(&mut self) -> BreakOrContinue {
+        for event in self.event_pump.poll_iter() {
             match event {
-                Event::Quit { .. } => break 'running,
+                Event::Quit { .. } => return BreakOrContinue::Break,
                 Event::KeyDown {
                     keycode: Some(k), ..
                 } => match k {
-                    Keycode::Escape => break 'running,
-                    Keycode::T => nes.tick(),
-                    Keycode::C => {
-                        let cycles = nes.step_cpu_instruction();
-                        println!("{} cpu cycles", cycles);
-                    }
-                    Keycode::F => {
-                        let ticks = nes.step_frame();
-                        println!("{} ppu ticks", ticks);
-                    }
+                    Keycode::Escape => return BreakOrContinue::Break,
                     _ => (),
                 },
                 _ => (),
@@ -128,110 +177,55 @@ fn main() -> Result<(), Error> {
         }
         // The rest of the game loop goes here...
 
-        match &mut movie {
+        match &mut self.movie {
             Some((commands, buttons)) => {
                 if let Some(c) = commands.pop() {
                     if c.contains(Command::SOFT_RESET) {
-                        nes.reset();
+                        self.emulator.reset();
                     }
                 }
                 if let Some(b) = buttons.pop() {
-                    nes.io.io.current_key_state.set(b);
+                    self.emulator.set_buttons(b);
                 } else {
-                    nes.io
-                        .io
-                        .current_key_state
-                        .set(StandardControllerButtons::empty());
+                    self.emulator
+                        .set_buttons(StandardControllerButtons::empty());
                 }
             }
             None => {
                 let mut buttons = StandardControllerButtons::empty();
-                let keys = event_pump.keyboard_state();
+                let keys = self.event_pump.keyboard_state();
                 for &(sc, k) in KEYMAP {
                     if keys.is_scancode_pressed(sc) {
                         buttons |= k;
                     }
                 }
-                nes.io.io.current_key_state.set(buttons);
+                self.emulator.set_buttons(buttons);
             }
         }
 
-        let ps = Instant::now();
-        nes.step_frame();
-        time_stepping += ps.elapsed().as_secs_f32();
-
-        canvas.present();
-
-        fc += 1;
-
-        if last_time.elapsed().as_secs_f32() > 1.0 {
-            let ms_per_frame = 1000.0 / (fc - last_fc) as f32;
-            canvas
-                .window_mut()
-                .set_title(format!("covnes: {:.2}ms/frame", ms_per_frame).as_str())?;
-            last_fc = fc;
-            last_time += Duration::from_secs(1);
-        }
+        BreakOrContinue::Continue
     }
 
-    let elapsed = start.elapsed();
-    println!(
-        "{} frames in {:?} = {} ms/frame, {} average fps",
-        fc,
-        elapsed,
-        1000.0 * elapsed.as_secs_f32() / fc as f32,
-        fc as f32 / elapsed.as_secs_f32()
-    );
+    fn show_counts(&self) {
+        println!("{}", self.timer.summary_counts());
 
-    let step_per_frame = time_stepping / fc as f32;
-    println!(
-        "Spent {}ms stepping each frame: {}%",
-        step_per_frame * 1000.0,
-        time_stepping / elapsed.as_secs_f32()
-    );
-    let render_per_frame = time_rendering / fc as f32;
-    println!(
-        "Spent {}ms rendering each frame: {}%",
-        render_per_frame * 1000.0,
-        time_rendering / elapsed.as_secs_f32()
-    );
-    Ok(())
-}
-
-struct SdlIO {
-    pixels: Cell<[(u8, u8, u8); 256 * 240]>,
-    current_key_state: Cell<StandardControllerButtons>,
-}
-
-impl SdlIO {
-    fn new() -> SdlIO {
-        SdlIO {
-            pixels: Cell::new([(0, 0, 0); 256 * 240]),
-            current_key_state: Cell::new(StandardControllerButtons::empty()),
-        }
-    }
-
-    fn get_pixel(&self, row: u16, col: u16) -> (u8, u8, u8) {
-        self.pixels()[row as usize * 256 + col as usize].get()
-    }
-
-    fn pixels(&self) -> &[Cell<(u8, u8, u8)>] {
-        let f: &Cell<[(u8, u8, u8)]> = &self.pixels;
-        f.as_slice_of_cells()
+        let render_per_frame = self.time_rendering / self.timer.render_frame_count() as f32;
+        println!(
+            "Spent {}ms rendering each frame: {}%",
+            render_per_frame * 1000.0,
+            self.time_rendering / self.timer.elapsed()
+        );
+        let wait_per_frame =
+            self.time_waiting_for_next_frame / self.timer.render_frame_count() as f32;
+        println!(
+            "Spent {}ms waiting for steps: {}%",
+            wait_per_frame * 1000.0,
+            self.time_waiting_for_next_frame / self.timer.elapsed()
+        );
     }
 }
 
-impl SingleStandardControllerIO for SdlIO {
-    fn set_pixel(&self, row: u16, col: u16, r: u8, g: u8, b: u8) {
-        self.pixels()[row as usize * 256 + col as usize].set((r, g, b));
-    }
-
-    fn poll_buttons(&self) -> StandardControllerButtons {
-        self.current_key_state.get()
-    }
-}
-
-fn parse_movie_file(filename: &Path) -> Result<(Vec<Command>, Vec<GamepadInput>), Error> {
+fn parse_movie_file(filename: &Path) -> Result<(Vec<Command>, Vec<GamepadInput>)> {
     let mut f = File::open(filename)?;
     let fm2 = FM2File::parse(&mut f)?;
     if fm2.pal_flag || fm2.fds {

@@ -1,12 +1,12 @@
+use anyhow::Result;
 use covnes::nes::cpu::CpuHostAccess;
 use covnes::nes::io::DummyIO;
 use covnes::nes::mappers;
 use covnes::nes::Nes;
 use covnes::romfiles::RomFile;
-use failure::Error;
 use std::fs::File;
 
-fn do_rom(name: &str) -> Result<(), Error> {
+fn do_rom(name: &str) -> Result<()> {
     // Load up the rom
     let path = format!("../roms/test/{}.nes", name);
     let mut f = File::open(path)?;
@@ -60,53 +60,53 @@ fn do_rom(name: &str) -> Result<(), Error> {
     Ok(())
 }
 
-fn do_rom_instr_test_v5(name: &str) -> Result<(), Error> {
+fn do_rom_instr_test_v5(name: &str) -> Result<()> {
     do_rom(format!("instr_test-v5/rom_singles/{}", name).as_str())
 }
 
 #[test]
-fn ppu_sprite_overflow() -> Result<(), Error> {
+fn ppu_sprite_overflow() -> Result<()> {
     do_rom("ppu_sprite_overflow")
 }
 
 #[test]
-fn ppu_sprite_hit() -> Result<(), Error> {
+fn ppu_sprite_hit() -> Result<()> {
     do_rom("ppu_sprite_hit")
 }
 
 #[test]
-fn ppu_vbl_nmi() -> Result<(), Error> {
+fn ppu_vbl_nmi() -> Result<()> {
     do_rom("ppu_vbl_nmi")
 }
 
 #[test]
-fn instr_test_v5() -> Result<(), Error> {
+fn instr_test_v5() -> Result<()> {
     do_rom("instr_test-v5")
 }
 
 // #[test]
-// fn oam_read() -> Result<(), Error> {
+// fn oam_read() -> Result<()> {
 //     do_rom("oam_read")
 // }
 
 #[test]
-fn m_abs_x_wrap() -> Result<(), Error> {
+fn m_abs_x_wrap() -> Result<()> {
     do_rom_instr_test_v5("instr_misc/01-abs_x_wrap")
 }
 
 #[test]
-fn m_branch_wrap() -> Result<(), Error> {
+fn m_branch_wrap() -> Result<()> {
     do_rom_instr_test_v5("instr_misc/02-branch_wrap")
 }
 
 #[test]
-fn m_dummy_read() -> Result<(), Error> {
+fn m_dummy_read() -> Result<()> {
     do_rom_instr_test_v5("instr_misc/03-dummy_reads")
 }
 
 /*
 #[test]
-fn m_dummy_read_apu() -> Result<(), Error> {
+fn m_dummy_read_apu() -> Result<()> {
     do_rom_instr_test_v5("instr_misc/04-dummy_reads_apu")
 }
 */

@@ -1,5 +1,6 @@
+use anyhow::{bail, Result};
+
 use crate::romfiles::RomFile;
-use failure::{bail, Error};
 use std::cell::Cell;
 
 mod common;
@@ -14,7 +15,7 @@ pub enum Cartridge {
     UxROM(uxrom::UxROM),
 }
 
-pub fn from_rom(rom: RomFile) -> Result<Cartridge, Error> {
+pub fn from_rom(rom: RomFile) -> Result<Cartridge> {
     Ok(match rom.mapper {
         0 => Cartridge::NROM(nrom::from_rom(rom)?),
         1 => Cartridge::SxROM(sxrom::from_rom(rom)?),

@@ -1,12 +1,12 @@
 use crate::nes::mappers::common::MirrorMode;
 use crate::nes::mappers::{common, CartridgeImpl};
 use crate::romfiles::RomFile;
-use failure::Error;
+use anyhow::Result;
 use std::cell::Cell;
 
 const LOAD_REG_INITIAL: u8 = 0b10000;
 
-pub fn from_rom(rom: RomFile) -> Result<SxROM, Error> {
+pub fn from_rom(rom: RomFile) -> Result<SxROM> {
     // This is a hack for the certain values I need to get the combined instr_test-v5 rom working
     // Basically just SNROM with 256 prg rom, prg ram, 8kb chr ram not rom
 

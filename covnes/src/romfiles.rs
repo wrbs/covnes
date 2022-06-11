@@ -1,4 +1,4 @@
-use failure::{bail, Error};
+use anyhow::{bail, Result};
 use io::Read;
 use std::fs::File;
 use std::io;
@@ -23,12 +23,12 @@ pub struct RomFile {
 const MAGIC_BYTES: [u8; 4] = [0x4E, 0x45, 0x53, 0x1A];
 
 impl RomFile {
-    pub fn from_filename<P: AsRef<Path>>(path: P) -> Result<RomFile, Error> {
+    pub fn from_filename<P: AsRef<Path>>(path: P) -> Result<RomFile> {
         let mut f = File::open(path)?;
         Self::from_read(&mut f)
     }
 
-    pub fn from_read<R: Read>(f: &mut R) -> Result<RomFile, Error> {
+    pub fn from_read<R: Read>(f: &mut R) -> Result<RomFile> {
         let mut header = [0; 16];
         let bytes_read = f.read(&mut header)?;
 

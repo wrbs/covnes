@@ -1,9 +1,9 @@
+use anyhow::Result;
 use covnes::nes::cpu::CpuHostAccess;
 use covnes::nes::io::DummyIO;
 use covnes::nes::mappers;
 use covnes::nes::Nes;
 use covnes::romfiles::RomFile;
-use failure::Error;
 use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -16,23 +16,23 @@ const BUF_SIZE: usize = 1024;
 
 #[test]
 #[ignore]
-fn dk_log_cmp() -> Result<(), Error> {
+fn dk_log_cmp() -> Result<()> {
     log_cmp("dk")
 }
 
 #[test]
 #[ignore]
-fn ice_log_cmp() -> Result<(), Error> {
+fn ice_log_cmp() -> Result<()> {
     log_cmp("ice")
 }
 
 // It's like 2 gigs, no time for that
 // #[test]
-// fn chace_log_cmp() -> Result<(), Error> {
+// fn chace_log_cmp() -> Result<()> {
 //     log_cmp("Chase")
 // }
 
-fn log_cmp(game: &str) -> Result<(), Error> {
+fn log_cmp(game: &str) -> Result<()> {
     // Load up the rom
     let mut f = File::open(format!("../roms/games/{}.nes", game))?;
     let log = File::open(format!("../roms/games/{}.log", game))?;
