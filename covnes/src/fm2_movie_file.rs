@@ -1,6 +1,6 @@
-use snafu::{ensure, ResultExt, Snafu};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
+use thiserror::Error;
 
 #[derive(Debug, Clone)]
 pub struct FM2File {
@@ -61,41 +61,51 @@ pub struct ZapperInput {
     z: u8,
 }
 
-#[derive(Debug, Snafu)]
+#[derive(Debug, Error)]
 pub enum Error {
-    #[snafu(display("Could not read FM2 file: {}", source))]
-    CouldNotRead { source: std::io::Error },
-    #[snafu(display("No input lines were found"))]
+    #[error("Could not read FM2 file")]
+    CouldNotRead(#[from] std::io::Error),
+
+    #[error("No input lines were found")]
     NoInput,
-    #[snafu(display("Malformed header at line {}", line_no))]
+
+    #[error("Malformed header at line {line_no}")]
     MalformedHeaderLine { line_no: i32 },
-    #[snafu(display("Duplicate key '{}' at line {}", key, line_no))]
+
+    #[error("Duplicate key '{key}' at line {line_no}")]
     DuplicateKey { key: String, line_no: i32 },
-    #[snafu(display("Required key '{}' not found in the header", key))]
+
+    #[error("Required key '{key}' not found in the header")]
     RequiredKeyNotFound { key: &'static str },
-    #[snafu(display("Key '{}' is not an integer, it's '{}'", key, value))]
+
+    #[error("Key '{key}' is not an integer, it's '{value}'")]
     NotAnInteger { key: &'static str, value: String },
-    #[snafu(display("Key '{}' is not an bool (0/1), it's '{}'", key, value))]
+
+    #[error("Key '{key}' is not an bool (0/1), it's '{value}'")]
     NotABool { key: &'static str, value: i32 },
-    #[snafu(display("Key '{}' is not a valid input device", key))]
+
+    #[error("Key '{key}' is not a valid input device")]
     BadInputDevice { key: &'static str },
-    #[snafu(display("Key '{}' is not a valid FCExp device", key))]
+
+    #[error("Key '{key}' is not a valid FCExp device")]
     BadPort2 { key: &'static str },
-    #[snafu(display("File stored using binary format which we don't support"))]
+
+    #[error("File stored using binary format which we don't support")]
     NoBinaryPlease,
-    #[snafu(display("Wrong number of sections or malformed data on line {}", line_no))]
+
+    #[error("Wrong number of sections or malformed data on line {line_no}")]
     BadInputLine { line_no: i32 },
-    #[snafu(display("Bad commands field on line {}", line_no))]
+
+    #[error("Bad commands field on line {line_no}")]
     BadCommands { line_no: i32 },
-    #[snafu(display("Bad gamepad input on line {} for section {}", line_no, section))]
+
+    #[error("Bad gamepad input on line {line_no} for section {section}")]
     BadGamepadInput { line_no: i32, section: &'static str },
-    #[snafu(display("Bad zapper input on line {} for section {}", line_no, section))]
+
+    #[error("Bad zapper input on line {line_no} for section {section}")]
     BadZapperInput { line_no: i32, section: &'static str },
-    #[snafu(display(
-        "Bad \"input\" for no connected controller on line {} for section {}",
-        line_no,
-        section
-    ))]
+
+    #[error("Bad \"input\" for no connected controller on line {line_no} for section {section}")]
     BadNoInputInput { line_no: i32, section: &'static str },
 }
 
@@ -111,9 +121,11 @@ impl FM2File {
         let mut line_no = 1;
         loop {
             line.clear();
-            let read = f.read_line(&mut line).context(CouldNotRead)?;
+            let read = f.read_line(&mut line)?;
 
-            ensure!(read != 0, NoInput);
+            if read == 0 {
+                return Err(Error::NoInput);
+            }
 
             // Trim whitespace
             if line.ends_with('\n') {
@@ -129,14 +141,16 @@ impl FM2File {
             }
 
             let split: Vec<&str> = line.splitn(2, " ").collect();
-            ensure!(split.len() == 2, MalformedHeaderLine { line_no });
+            if split.len() != 2 {
+                return Err(Error::MalformedHeaderLine { line_no });
+            }
             let k = String::from(split[0]);
             let v = String::from(split[1]);
 
-            ensure!(
-                !header_map.contains_key(&k),
-                DuplicateKey { key: k, line_no }
-            );
+            if header_map.contains_key(&k) {
+                return Err(Error::DuplicateKey { key: k, line_no });
+            }
+
             header_map.insert(k, v);
 
             line_no += 1;
@@ -180,7 +194,9 @@ impl FM2File {
         //         SIFC_NONE = 0
         let port2 = {
             let port2 = required_int(&mut header_map, "port2")?;
-            ensure!(port2 == 0, BadPort2 { key: "port2" });
+            if port2 != 0 {
+                return Err(Error::BadPort2 { key: "port2" });
+            }
             () // Explicitly the value for port2
         };
         //     binary (bool) (optional) - true if input log is stored in binary format
@@ -237,12 +253,9 @@ impl FM2File {
             }
 
             // Ensure it goes like "|A|B|C|D|"
-            ensure!(parts[0] == "", BadInputLine { line_no });
-            ensure!(parts[parts.len() - 1] == "", BadInputLine { line_no });
-
-            // Port 2 = ()
-            ensure!(parts[parts.len() - 2] == "", BadInputLine { line_no });
-
+            if parts[0] != "" || parts[parts.len() - 1] != "" || parts[parts.len() - 2] == "" {
+                return Err(Error::BadInputLine { line_no });
+            }
             let command = match parts[1].parse::<i32>() {
                 Ok(v) => {
                     if v >= 0 {
@@ -280,7 +293,7 @@ impl FM2File {
             }
 
             line.clear();
-            let read = f.read_line(&mut line).context(CouldNotRead)?;
+            let read = f.read_line(&mut line)?;
             if read == 0 {
                 break;
             }
@@ -370,7 +383,9 @@ fn input_device(map: &mut HashMap<String, String>, key: &'static str) -> Result<
 }
 
 fn parse_gamepad_input(input: &str, line_no: i32, section: &'static str) -> Result<GamepadInput> {
-    ensure!(input.len() == 8, BadGamepadInput { line_no, section });
+    if input.len() != 8 {
+        return Err(Error::BadGamepadInput { line_no, section });
+    }
     let mut v = 0u8;
     for c in input.chars() {
         v <<= 1;
@@ -388,7 +403,9 @@ fn parse_zapper_input(_input: &str, _line_no: i32, _section: &'static str) -> Re
 }
 
 fn parse_no_controller_input_input(input: &str, line_no: i32, section: &'static str) -> Result<()> {
-    ensure!(input == "", BadNoInputInput { line_no, section });
+    if input != "" {
+        return Err(Error::BadNoInputInput { line_no, section });
+    }
     Ok(())
 }
 
