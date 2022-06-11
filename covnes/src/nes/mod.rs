@@ -5,11 +5,12 @@ pub mod mappers;
 pub mod palette;
 pub mod ppu;
 
+use std::cell::Cell;
+
 use cpu::{CpuHostAccess, CPU};
 use dma::DMA;
 use io::IO;
 use ppu::{PPUHostAccess, PPU};
-use std::cell::Cell;
 
 use self::mappers::Cartridge;
 

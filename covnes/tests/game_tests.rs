@@ -1,12 +1,14 @@
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+};
+
 use anyhow::Result;
-use covnes::nes::cpu::CpuHostAccess;
-use covnes::nes::io::DummyIO;
-use covnes::nes::mappers;
-use covnes::nes::Nes;
-use covnes::romfiles::RomFile;
+use covnes::{
+    nes::{cpu::CpuHostAccess, io::DummyIO, mappers, Nes},
+    romfiles::RomFile,
+};
 use regex::Regex;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 
 // These test me against LaiNES. LaiNES is not perfect by any means but it provides an easy way to
 // troubleshoot obvious issues. I couldn't get the timing to align with mesen, it's too accurate for

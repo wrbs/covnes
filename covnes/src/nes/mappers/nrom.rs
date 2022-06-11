@@ -1,8 +1,11 @@
-use crate::nes::mappers::common::MirrorMode;
-use crate::nes::mappers::{common, CartridgeImpl};
-use crate::romfiles::{Mirroring, RomFile};
-use anyhow::{bail, Result};
 use std::cell::Cell;
+
+use anyhow::{bail, Result};
+
+use crate::{
+    nes::mappers::{common, common::MirrorMode, CartridgeImpl},
+    romfiles::{Mirroring, RomFile},
+};
 
 pub fn from_rom(rom: RomFile) -> Result<NROM> {
     let mirror_prg_rom = rom.prg_rom.len() == 16384;

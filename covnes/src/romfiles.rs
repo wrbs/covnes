@@ -1,8 +1,7 @@
+use std::{fs::File, io, path::Path};
+
 use anyhow::{bail, Result};
 use io::Read;
-use std::fs::File;
-use std::io;
-use std::path::Path;
 
 #[derive(Debug)]
 pub enum Mirroring {

@@ -1,5 +1,6 @@
-use crate::nes::palette;
 use std::cell::Cell;
+
+use crate::nes::palette;
 
 // I got a *LOT* of help from reading https://github.com/AndreaOrru/LaiNES/blob/master/src/ppu.cpp
 // in addition to (of course) NesDEV

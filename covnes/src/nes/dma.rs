@@ -1,7 +1,6 @@
-use crate::nes::cpu::CpuHostAccess;
-use crate::nes::io::IO;
-use crate::nes::Nes;
 use std::cell::Cell;
+
+use crate::nes::{cpu::CpuHostAccess, io::IO, Nes};
 
 pub struct DMA {
     pub is_odd: Cell<bool>,

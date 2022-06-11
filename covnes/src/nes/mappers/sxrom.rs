@@ -1,8 +1,11 @@
-use crate::nes::mappers::common::MirrorMode;
-use crate::nes::mappers::{common, CartridgeImpl};
-use crate::romfiles::RomFile;
-use anyhow::Result;
 use std::cell::Cell;
+
+use anyhow::Result;
+
+use crate::{
+    nes::mappers::{common, common::MirrorMode, CartridgeImpl},
+    romfiles::RomFile,
+};
 
 const LOAD_REG_INITIAL: u8 = 0b10000;
 

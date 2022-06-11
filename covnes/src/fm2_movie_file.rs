@@ -1,5 +1,8 @@
-use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read};
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader, Read},
+};
+
 use thiserror::Error;
 
 #[derive(Debug, Clone)]

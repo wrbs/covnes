@@ -1,23 +1,26 @@
 mod emulator;
 mod timer;
-use anyhow::{anyhow, bail, Result};
-
-use covnes::fm2_movie_file::{
-    Command, ControllerConfiguration, FM2File, GamepadInput, InputDevice,
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+    time::Instant,
 };
-use covnes::nes::io::StandardControllerButtons;
-use covnes::nes::mappers;
-use covnes::romfiles::RomFile;
-use sdl2::event::Event;
-use sdl2::keyboard::{Keycode, Scancode};
-use sdl2::pixels::Color;
-use sdl2::rect::Rect;
-use sdl2::render::Canvas;
-use sdl2::video::Window;
-use sdl2::EventPump;
-use std::fs::File;
-use std::path::{Path, PathBuf};
-use std::time::Instant;
+
+use anyhow::{anyhow, bail, Result};
+use covnes::{
+    fm2_movie_file::{Command, ControllerConfiguration, FM2File, GamepadInput, InputDevice},
+    nes::{io::StandardControllerButtons, mappers},
+    romfiles::RomFile,
+};
+use sdl2::{
+    event::Event,
+    keyboard::{Keycode, Scancode},
+    pixels::Color,
+    rect::Rect,
+    render::Canvas,
+    video::Window,
+    EventPump,
+};
 use structopt::StructOpt;
 use timer::{TickResult, Timer};
 

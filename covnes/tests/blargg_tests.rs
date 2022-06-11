@@ -1,10 +1,10 @@
-use anyhow::Result;
-use covnes::nes::cpu::CpuHostAccess;
-use covnes::nes::io::DummyIO;
-use covnes::nes::mappers;
-use covnes::nes::Nes;
-use covnes::romfiles::RomFile;
 use std::fs::File;
+
+use anyhow::Result;
+use covnes::{
+    nes::{cpu::CpuHostAccess, io::DummyIO, mappers, Nes},
+    romfiles::RomFile,
+};
 
 fn do_rom(name: &str) -> Result<()> {
     // Load up the rom

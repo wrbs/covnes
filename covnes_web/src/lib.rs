@@ -1,12 +1,14 @@
 mod utils;
 
-use covnes::nes::io::{
-    SingleStandardController, SingleStandardControllerIO, StandardControllerButtons,
-};
-use covnes::nes::mappers;
-use covnes::nes::Nes;
-use covnes::romfiles::RomFile;
 use std::cell::Cell;
+
+use covnes::{
+    nes::{
+        io::{SingleStandardController, SingleStandardControllerIO, StandardControllerButtons},
+        mappers, Nes,
+    },
+    romfiles::RomFile,
+};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]

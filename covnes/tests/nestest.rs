@@ -1,12 +1,15 @@
 // This runs nestest and tests the CPU in isolation
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+};
+
 use anyhow::Result;
-use covnes::nes::io::DummyIO;
-use covnes::nes::mappers;
-use covnes::nes::Nes;
-use covnes::romfiles::RomFile;
+use covnes::{
+    nes::{io::DummyIO, mappers, Nes},
+    romfiles::RomFile,
+};
 use regex::Regex;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 
 #[test]
 fn nestest() -> Result<()> {

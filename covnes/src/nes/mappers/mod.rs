@@ -1,7 +1,8 @@
+use std::cell::Cell;
+
 use anyhow::{bail, Result};
 
 use crate::romfiles::RomFile;
-use std::cell::Cell;
 
 mod common;
 mod nrom;
